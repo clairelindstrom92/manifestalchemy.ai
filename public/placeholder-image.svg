@@ -1,0 +1,7 @@
+<!-- This is a placeholder SVG that can be used as a fallback image -->
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="128" height="128" rx="12" fill="#1F2937"/>
+  <rect x="16" y="16" width="96" height="96" rx="8" fill="#374151"/>
+  <circle cx="64" cy="64" r="24" fill="#F59E0B"/>
+  <path d="M52 64L60 72L76 56" stroke="#1F2937" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
