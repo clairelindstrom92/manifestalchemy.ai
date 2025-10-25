@@ -74,6 +74,36 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
     setIsGenerating(true);
     
     try {
+      // First, discover manifestations from the conversation
+      const discoveryResponse = await fetch('/api/discover-manifestations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          conversationText: formData.manifestation,
+          existingManifestations: []
+        }),
+      });
+
+      let discoveredManifestations = [];
+      if (discoveryResponse.ok) {
+        const discoveryData = await discoveryResponse.json();
+        discoveredManifestations = discoveryData.discoveredManifestations?.map((manifestation: any) => ({
+          id: `manifestation-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          name: manifestation.name,
+          description: manifestation.description,
+          category: manifestation.category,
+          discoveredAt: new Date(),
+          conversationId: `conv-${Date.now()}`,
+          confidence: manifestation.confidence,
+          status: manifestation.status,
+          source: 'ai-conversation' as const,
+          details: manifestation.details
+        })) || [];
+      }
+
+      // Then generate the manifestation plan
       const response = await fetch('/api/generate-plan', {
         method: 'POST',
         headers: {
@@ -108,7 +138,9 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
           timeframe: 'flexible'
         })),
         createdAt: new Date(),
-        completedSteps: []
+        completedSteps: [],
+        discoveredManifestations: discoveredManifestations,
+        activeConversations: [`conv-${Date.now()}`]
       };
 
       onComplete(project);
@@ -141,7 +173,9 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
           timeframe: 'flexible'
         })),
         createdAt: new Date(),
-        completedSteps: []
+        completedSteps: [],
+        discoveredManifestations: [],
+        activeConversations: []
       };
       onComplete(project);
     }
