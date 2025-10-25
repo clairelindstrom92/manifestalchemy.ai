@@ -40,7 +40,7 @@ Please respond with a JSON object containing:
       messages: [
         {
           role: "system",
-          content: "You are Aurelia, a manifestation coach. Create practical, actionable steps that help users move towards their manifestations. Focus on immediate actions they can take today."
+          content: "You are Manifestation Alchemy AI, a manifestation coach. Create practical, actionable steps that help users move towards their manifestations. Focus on immediate actions they can take today."
         },
         {
           role: "user",
