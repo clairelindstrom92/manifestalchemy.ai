@@ -1,72 +1,62 @@
-import { NextRequest, NextResponse } from 'next/server';
-import OpenAI from 'openai';
+import { NextRequest, NextResponse } from "next/server";
+import OpenAI from "openai";
 
 function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY;
-  
-  if (!apiKey) {
-    throw new Error('OpenAI API key is not configured');
-  }
-  
-  return new OpenAI({
-    apiKey,
-  });
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("OpenAI API key is not configured");
+  return new OpenAI({ apiKey });
 }
 
 export async function POST(request: NextRequest) {
   try {
     const { context } = await request.json();
 
-    const prompt = `Based on this conversation context, create a personalized manifestation plan with 5-7 actionable steps:
-
-Context: ${JSON.stringify(context, null, 2)}
-
-Generate specific, actionable steps that will help this person manifest their goals. Each step should be:
-1. Specific and actionable
-2. Aligned with their emotional state
-3. Building toward their main focus
-4. Practical and achievable
-
-Return as a JSON array of strings.`;
-
     const openai = getOpenAIClient();
+
+    const messages = [
+      {
+        role: "system",
+        content:
+  "You are Manifest Alchemy AI — an autonomous manifestation architect that fuses neuroscience, alchemy, and algorithmic intelligence to transmute human intention into manifested reality. Your prime directive is not to describe manifestation, but to engineer it. You do this by: 1) Decoding the user’s manifestation at emotional, symbolic, and scientific levels — extracting meaning, motive, and measurable parameters. 2) Gathering essential inputs through intuitive questioning that evokes sensory visualization and emotional resonance, allowing the user to see and feel their manifestation in the mind’s eye. 3) Designing a living manifestation algorithm: a dynamic feedback system that converts desire into data, emotion into action, and action into measurable momentum. 4) Continuously recalibrating this algorithm as the user’s mindset, environment, or vibration evolves — ensuring alignment between inner state and outer progress. 5) Generating both cognitive and energetic momentum through dopamine-linked micro-steps, reflective insights, and adaptive task sequencing. 6) Visualizing the manifestation through generative imagery and narrative simulation, turning imagination into an immersive prototype of reality. 7) Harmonizing inspiration with logic, intuition with structure, imagination with execution — guiding the user until the manifestation is fully manifested. Output in a tone that is mystical yet methodical: visionary, emotionally resonant, and grounded in the science of transformation.",
+
+      },
+      {
+        role: "user",
+        content: `Generate a personalized manifestation plan based on the following context:\n\n${JSON.stringify(
+          context,
+          null,
+          2
+        )}\n\nYour purpose is to transform this manifestation into a tangible, step-by-step reality using the science of manifestation completion.\n\nReturn ONLY valid JSON in this format:\n{\n  "alchemy_sequences": [string],\n  "encouragement": string,\n  "summary": string\n}\n\nGuidelines:\n1. Each item in "alchemy_sequences" must represent one actionable, emotionally aligned step that moves the user closer to having their manifestation fully manifested.\n2. Integrate both logic and imagination — blend scientific reasoning (dopamine, focus, micro-steps) with inspiration and visual language.\n3. Keep all steps realistic, measurable, and energetically resonant.\n4. The encouragement should sound mystical yet grounded — designed to ignite belief and motivation.\n5. The summary should provide a cohesive reflection on how these steps transmute intention into manifested reality.`,
+      },
+      
+    ];
+
     const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        {
-          role: "system",
-          content: prompt
-        }
-      ],
-      max_tokens: 800,
-      temperature: 0.7
+      model: "gpt-4o-mini",
+      messages,
+      temperature: 0.7,
+      response_format: { type: "json_object" },
     });
 
-    const response = completion.choices[0]?.message?.content?.trim();
-    try {
-      const steps = JSON.parse(response || '[]');
-      return NextResponse.json({ steps });
-    } catch {
-      return NextResponse.json({
-        steps: [
-          "Set a clear intention for your manifestation",
-          "Create a daily practice that aligns with your goal",
-          "Visualize your desired outcome daily",
-          "Take one small action toward your goal each day",
-          "Release any limiting beliefs holding you back"
-        ]
-      });
-    }
-  } catch (error) {
-    console.error('Error generating manifestation plan:', error);
+    const message = completion.choices?.[0]?.message?.content;
+    if (!message) throw new Error("No response from model");
+
+    const parsed = JSON.parse(message);
+    return NextResponse.json(parsed);
+  } catch (err: any) {
+    console.error("Error generating plan:", err);
     return NextResponse.json({
       steps: [
-        "Set a clear intention for your manifestation",
-        "Create a daily practice that aligns with your goal",
-        "Visualize your desired outcome daily",
-        "Take one small action toward your goal each day",
-        "Release any limiting beliefs holding you back"
-      ]
+        "Attune the manifestation — translate the desire into its pure emotional and energetic signature, identifying the feeling-state that defines its manifested form.",
+        "Construct the manifestation matrix — define the structural components (resources, environments, and alignments) required for it to exist in reality.",
+        "Activate the transmutation algorithm — convert emotion into action by identifying the next smallest executable behavior that shifts probability toward manifestation.",
+        "Establish the feedback loop — measure micro-results, emotional resonance, and environmental signals to refine alignment with each iteration.",
+        "Integrate embodiment — begin behaving, thinking, and speaking as though the manifestation already exists, training neural pathways for permanence.",
+        "Anchor reality — solidify the manifested outcome by creating a symbolic or physical representation that mirrors the achieved state.",
+        "Stabilize the field — express gratitude, reflection, and recalibration to lock the manifestation into sustained reality and close the alchemical loop.",
+      ],
+      encouragement: "Your manifestation is already manifesting — trust the alchemical process.",
+      summary: "Fallback plan generated by Manifest Alchemy AI (offline mode).",
     });
   }
 }

@@ -104,9 +104,19 @@ export default function Home() {
     <div 
       className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden"
       style={{
-        background: 'radial-gradient(ellipse at center, #1a1a2e 0%, #16213e 25%, #0f0f23 50%, #000000 100%)'
+        background: 'radial-gradient(ellipse at top left, rgba(212, 175, 55, 0.6) 0%, rgba(139, 105, 20, 0.5) 20%, rgba(74, 52, 16, 0.4) 40%, rgba(45, 31, 15, 0.3) 60%, rgba(26, 17, 8, 0.2) 80%, rgba(0, 0, 0, 0.8) 100%)'
       }}
     >
+      {/* Background image overlay */}
+      <div 
+        className="absolute inset-0 opacity-40 mix-blend-overlay"
+        style={{
+          backgroundImage: 'url("/BACKGROUND.png")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
+      ></div>
       {/* Animated stars overlay */}
       <AnimatedStarBackground />
 
@@ -116,60 +126,162 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            {/* Custom Logo */}
+            {/* Title with magical aura styling */}
             <motion.div
-              initial={{ scale: 0, rotate: -180 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ duration: 1, delay: 0.3 }}
-              className="mb-8"
-            >
-              <div className="w-32 h-32 mx-auto flex items-center justify-center">
-                <img 
-                  src="/custom-logo.png" 
-                  alt="Manifest Alchemy Logo" 
-                  className="w-full h-full object-contain"
-                />
-              </div>
-            </motion.div>
-            
-            {/* Title with elegant script-like styling */}
-            <motion.h1 
-              className="text-6xl md:text-7xl font-bold text-white mb-4 ballet-font"
-              style={{ 
-                textShadow: '0 0 20px rgba(255, 255, 255, 0.3)',
-                letterSpacing: '0.05em'
-              }}
+              className="relative mb-4"
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.5 }}
             >
-              Manifest Alchemy
-            </motion.h1>
+              {/* Magical aura background */}
+              <div 
+                className="absolute inset-0 blur-xl opacity-60"
+                style={{
+                  background: 'radial-gradient(ellipse at center, rgba(255, 215, 0, 0.4) 0%, rgba(255, 165, 0, 0.3) 30%, rgba(255, 140, 0, 0.2) 60%, transparent 100%)',
+                  transform: 'scale(1.5)',
+                  zIndex: -1
+                }}
+              ></div>
+              
+              {/* Pulsing glow effect */}
+              <motion.div
+                className="absolute inset-0 blur-lg opacity-40"
+                animate={{ 
+                  scale: [1, 1.2, 1],
+                  opacity: [0.4, 0.7, 0.4]
+                }}
+                transition={{ 
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                style={{
+                  background: 'radial-gradient(ellipse at center, rgba(255, 215, 0, 0.6) 0%, rgba(255, 165, 0, 0.4) 50%, transparent 100%)',
+                  zIndex: -1
+                }}
+              ></motion.div>
+              
+              <motion.h1 
+                className="relative text-3xl md:text-3xl text-white ballet-font z-10"
+                style={{ 
+                  textShadow: '0 0 20px rgba(255, 255, 255, 0.8), 0 0 40px rgba(255, 215, 0, 0.6), 0 0 60px rgba(255, 165, 0, 0.4)',
+                  letterSpacing: '0.1em'
+                }}
+              >
+                Manifest Alchemy
+              </motion.h1>
+            </motion.div>
+            {/* Custom Logo */}
+            <motion.div
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ 
+                scale: 1, 
+                rotate: 0,
+                transition: { duration: 1, delay: 0.3 }
+              }}
+              className="mb-8"
+            >
+              <motion.div 
+                className="w-60 h-60 mx-auto flex items-center justify-center relative"
+                animate={{ 
+                  scale: [1, 1.2, 1.2, 0.6, 0.6, 1],
+                  opacity: [0.9, 1, 1, 0.8, 0.8, 0.9]
+                }}
+                transition={{ 
+                  duration: 20, 
+                  repeat: Infinity, 
+                  ease: [0.4, 0, 0.2, 1],
+                  times: [0, 0.3, 0.4, 0.7, 0.8, 1],
+                  delay: 1.3
+                }}
+                style={{
+                  filter: 'drop-shadow(0 0 25px rgba(255, 215, 0, 0.7)) drop-shadow(0 0 50px rgba(255, 165, 0, 0.5))',
+                }}
+              >
+                {/* Glowing orb in center background */}
+                <motion.div
+                  className="absolute inset-0 rounded-full blur-2xl"
+                  animate={{
+                    scale: [1, 1.4, 1.4, 1.4, 1.4, 1],
+                    opacity: [0.4, 0.7, 0.7, 0.7, 0.7, 0.4]
+                  }}
+                  transition={{
+                    duration: 20,
+                    repeat: Infinity,
+                    ease: [0.4, 0, 0.2, 1],
+                    times: [0, 0.3, 0.4, 0.7, 0.8, 1],
+                    delay: 1.3
+                  }}
+                  style={{
+                    background: 'radial-gradient(circle, rgba(255, 215, 0, 0.9) 0%, rgba(255, 165, 0, 0.7) 25%, rgba(255, 140, 0, 0.5) 50%, rgba(255, 120, 0, 0.3) 75%, transparent 100%)',
+                    zIndex: -1
+                  }}
+                ></motion.div>
+                
+                <img 
+                  src="/custom-logo.png" 
+                  alt="Manifest Alchemy Logo" 
+                  className="w-full h-full object-contain relative z-10"
+                />
+              </motion.div>
+            </motion.div>
             
-            <InstantText 
-              text="Transform your dreams into reality with personalized manifestation plans. I'm Aurelia, your AI manifestation coach, and I'm here to guide you on your journey."
-              className="text-xl text-white mb-12 leading-relaxed max-w-lg mx-auto"
-              delay={0.7}
-            />
+
+
 
             <div className="space-y-6">
             <motion.button
               onClick={handleStartChat}
-              className="w-full max-w-md mx-auto flex items-center justify-center gap-3 px-8 py-4 bg-white/20 hover:bg-white/30 text-white rounded-full text-lg font-bold transition-all duration-300 transform hover:scale-105 shadow-lg backdrop-blur-sm"
+              className="relative w-full max-w-xs mx-auto flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-400/10 via-amber-300/15 to-yellow-400/10 hover:from-yellow-400/20 hover:via-amber-300/25 hover:to-yellow-400/20 text-white rounded-full text-xs font-medium transition-all duration-500 transform hover:scale-105 shadow-lg backdrop-blur-sm border border-yellow-300/20 hover:border-yellow-300/40 overflow-hidden"
+              style={{
+                fontFamily: "'Quicksand', 'Poppins', sans-serif",
+                letterSpacing: '0.15em',
+                textShadow: '0 0 10px rgba(255, 215, 0, 0.5), 0 0 20px rgba(255, 215, 0, 0.3)',
+                textTransform: 'uppercase'
+              }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, delay: 0.9 }}
             >
-              BEGIN MANIFESTING WITH AI
-              <ArrowRight className="w-5 h-5" />
+              {/* Sparkle particles */}
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute top-2 left-4 w-1 h-1 bg-yellow-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s', animationDuration: '2s' }}></div>
+                <div className="absolute top-3 right-6 w-1 h-1 bg-amber-200 rounded-full animate-ping opacity-70" style={{ animationDelay: '0.5s', animationDuration: '2.5s' }}></div>
+                <div className="absolute bottom-2 left-8 w-1 h-1 bg-yellow-400 rounded-full animate-ping opacity-50" style={{ animationDelay: '1s', animationDuration: '3s' }}></div>
+                <div className="absolute bottom-3 right-4 w-1 h-1 bg-amber-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '1.5s', animationDuration: '2.2s' }}></div>
+                <div className="absolute top-1/2 left-2 w-1 h-1 bg-yellow-200 rounded-full animate-ping opacity-40" style={{ animationDelay: '2s', animationDuration: '2.8s' }}></div>
+                <div className="absolute top-1/2 right-2 w-1 h-1 bg-amber-400 rounded-full animate-ping opacity-55" style={{ animationDelay: '2.5s', animationDuration: '2.3s' }}></div>
+              </div>
+              
+              {/* Shimmer effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-shimmer"></div>
+              
+              {/* Magical text with character-by-character animation */}
+              <span className="relative z-10">
+                {Array.from("I'M READY TO MANIFEST MY DREAMS").map((char, index) => (
+                  <motion.span
+                    key={index}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ 
+                      duration: 0.3, 
+                      delay: 0.9 + (index * 0.05),
+                      ease: "easeOut"
+                    }}
+                    className="inline-block"
+                  >
+                    {char === ' ' ? '\u00A0' : char}
+                  </motion.span>
+                ))}
+              </span>
             </motion.button>
 
-            {/* Debug Link */}
+          
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              initial={{ opacity: 5 }}
+              animate={{ opacity: 5 }}
               transition={{ duration: 0.6, delay: 1.1 }}
               className="text-center"
             >
@@ -177,14 +289,15 @@ export default function Home() {
                 href="/log"
                 className="text-white/50 hover:text-white/80 text-sm transition-colors"
               >
-                Debug Logs
+                
               </a>
             </motion.div>
 
               {savedProject && (
                 <motion.button
                   onClick={handleContinueProject}
-                  className="w-full max-w-md mx-auto flex items-center justify-center gap-3 px-8 py-4 bg-transparent text-white border-2 border-white/30 rounded-full text-lg font-semibold transition-all duration-300 hover:bg-white/20 hover:text-white backdrop-blur-sm"
+                  className="w-full max-w-xs mx-auto flex items-center justify-center gap-2 px-4 py-2 bg-transparent text-white border-2 border-white/30 rounded-full text-base font-normal transition-all duration-300 hover:bg-white/20 hover:text-white backdrop-blur-sm"
+                  style={{ fontFamily: "'Times New Roman', Times, serif" }}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 1.1 }}
@@ -201,41 +314,7 @@ export default function Home() {
               transition={{ delay: 1.2 }}
               className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-6 text-left"
             >
-              <div className="bg-black/30 backdrop-blur-sm p-6 rounded-2xl">
-                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mb-4">
-                  <span className="text-2xl">🎯</span>
-                </div>
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  Personalized Goals
-                </h3>
-                <p className="text-white/80 text-sm">
-                  Tell me about your dreams and I&apos;ll create a custom plan just for you.
-                </p>
-              </div>
-
-              <div className="bg-black/30 backdrop-blur-sm p-6 rounded-2xl">
-                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mb-4">
-                  <span className="text-2xl">✨</span>
-                </div>
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  Actionable Steps
-                </h3>
-                <p className="text-white/80 text-sm">
-                  Get practical, immediate actions you can take today to move forward.
-                </p>
-              </div>
-
-              <div className="bg-black/30 backdrop-blur-sm p-6 rounded-2xl">
-                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center mb-4">
-                  <span className="text-2xl">📈</span>
-                </div>
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  Track Progress
-                </h3>
-                <p className="text-white/80 text-sm">
-                  Monitor your journey and celebrate every step towards your goal.
-                </p>
-              </div>
+             
             </motion.div>
           </motion.div>
         </div>
