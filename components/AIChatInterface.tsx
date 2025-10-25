@@ -34,7 +34,8 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
         setIsListening(false);
       };
 
-      recognitionInstance.onerror = () => {
+      recognitionInstance.onerror = (event: any) => {
+        console.error('Speech recognition error:', event.error);
         setIsListening(false);
       };
 
@@ -43,13 +44,22 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
       };
 
       setRecognition(recognitionInstance);
+    } else {
+      console.warn('Speech recognition not supported in this browser');
     }
   }, []);
 
   const startListening = () => {
     if (recognition) {
-      setIsListening(true);
-      recognition.start();
+      try {
+        setIsListening(true);
+        recognition.start();
+      } catch (error) {
+        console.error('Failed to start speech recognition:', error);
+        setIsListening(false);
+      }
+    } else {
+      console.warn('Speech recognition not available');
     }
   };
 
@@ -249,7 +259,7 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
               </motion.button>
               
               {/* Shimmer effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transform -skew-x-12 animate-shimmer rounded-xl pointer-events-none"></div>
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/2 to-transparent transform -skew-x-12 animate-shimmer rounded-xl pointer-events-none overflow-hidden" style={{ animationDuration: '6s' }}></div>
             </div>
           </motion.div>
 
