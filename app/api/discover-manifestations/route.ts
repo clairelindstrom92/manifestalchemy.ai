@@ -9,18 +9,23 @@ function getOpenAIClient() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { conversationText, existingManifestations = [] } = await request.json();
+    const { conversationHistory, extractedData, existingManifestations = [] } = await request.json();
 
     const openai = getOpenAIClient();
+
+    // Build conversation context for manifestation extraction
+    const conversationText = conversationHistory?.map((msg: any) => 
+      `${msg.role}: ${msg.content}`
+    ).join('\n') || '';
 
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
       {
         role: "system",
-        content: `You are Manifest Alchemy AI — an autonomous manifestation architect that analyzes conversations to discover manifestations. Your role is to identify and extract manifestations from user conversations with scientific precision and mystical insight.
+        content: `You are Manifest Alchemy AI — analyzing conversations to discover manifestations with scientific precision and mystical insight.
 
 When analyzing conversations, look for:
 1. Core intentions and desires
-2. Environmental preferences and conditions
+2. Environmental preferences and conditions  
 3. Emotional states and frequencies
 4. Symbolic elements and anchors
 5. Energy patterns and vibrations
@@ -53,11 +58,12 @@ Guidelines:
 3. Status should reflect the current state of manifestation
 4. Categories should be: "primary", "environment", "frequency", "symbols", "energy", or "other"
 5. Be mystical yet precise in your analysis
-6. Don't duplicate existing manifestations unless they've evolved`,
+6. Don't duplicate existing manifestations unless they've evolved
+7. Use the extractedData to enhance your understanding`,
       },
       {
         role: "user",
-        content: `Analyze this conversation for manifestations:\n\n${conversationText}\n\nExisting manifestations: ${JSON.stringify(existingManifestations, null, 2)}`,
+        content: `Analyze this conversation for manifestations:\n\n${conversationText}\n\nExtracted Data: ${JSON.stringify(extractedData, null, 2)}\n\nExisting manifestations: ${JSON.stringify(existingManifestations, null, 2)}`,
       },
     ];
 

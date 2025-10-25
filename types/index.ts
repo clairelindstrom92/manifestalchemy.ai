@@ -57,6 +57,32 @@ export interface ConversationQuestion {
   isLast: boolean;
 }
 
+export interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+}
+
+export interface ExtractedData {
+  coreDesire?: string;
+  timeframe?: string;
+  constraints?: string[];
+  emotionalCharge?: string;
+  limitingBeliefs?: string[];
+}
+
+export interface ConversationResponse {
+  aiResponse: string;
+  readyToGenerate: boolean;
+  confidence: number;
+  extractedData: ExtractedData;
+}
+
+export interface ConversationRequest {
+  conversationHistory: ConversationMessage[];
+  userMessage: string;
+}
+
 export interface OpenAIResponse {
   steps: ManifestationStep[];
   reasoning: string;
