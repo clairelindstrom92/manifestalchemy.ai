@@ -174,62 +174,124 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
           transition={{ duration: 0.8 }}
           className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10"
         >
-          {/* Progress indicator */}
+          {/* Magical Progress indicator */}
           <div className="mb-8">
-            <div className="flex justify-center space-x-2 mb-4">
+            <div className="flex justify-center space-x-2 mb-4 relative">
               {steps.map((_, index) => (
-                <div
-                  key={index}
-                  className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                    index <= currentStep 
-                      ? 'bg-yellow-400 shadow-lg shadow-yellow-400/50' 
-                      : 'bg-white/20'
-                  }`}
-                />
+                <div key={index} className="relative">
+                  <div
+                    className={`w-3 h-3 rounded-full transition-all duration-500 ${
+                      index <= currentStep 
+                        ? 'bg-yellow-400 shadow-lg shadow-yellow-400/70' 
+                        : 'bg-white/20'
+                    }`}
+                    style={{
+                      filter: index <= currentStep ? 'drop-shadow(0 0 8px rgba(255, 215, 0, 0.8))' : 'none'
+                    }}
+                  />
+                  {/* Sparkle particles around active dots */}
+                  {index <= currentStep && (
+                    <>
+                      <div className="absolute -top-1 -right-1 w-1 h-1 bg-yellow-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s', animationDuration: '2s' }}></div>
+                      <div className="absolute -bottom-1 -left-1 w-1 h-1 bg-amber-200 rounded-full animate-ping opacity-70" style={{ animationDelay: '0.5s', animationDuration: '2.5s' }}></div>
+                      <div className="absolute top-1 -left-2 w-1 h-1 bg-yellow-400 rounded-full animate-ping opacity-50" style={{ animationDelay: '1s', animationDuration: '3s' }}></div>
+                    </>
+                  )}
+                </div>
               ))}
             </div>
-            <p className="text-white/60 text-sm">
+            <motion.p 
+              className="text-white/80 text-sm font-light"
+              style={{
+                textShadow: '0 0 10px rgba(255, 215, 0, 0.4)',
+                letterSpacing: '0.1em'
+              }}
+              animate={{ 
+                opacity: [0.8, 1, 0.8],
+                textShadow: [
+                  '0 0 10px rgba(255, 215, 0, 0.4)',
+                  '0 0 15px rgba(255, 215, 0, 0.6)',
+                  '0 0 10px rgba(255, 215, 0, 0.4)'
+                ]
+              }}
+              transition={{ 
+                duration: 3,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+            >
               Step {currentStep + 1} of {steps.length}
-            </p>
+            </motion.p>
           </div>
 
-          {/* Question */}
+          {/* Magical Question */}
           <motion.h2 
-            className="text-2xl md:text-3xl text-white mb-8 font-light"
+            className="text-2xl md:text-3xl text-white mb-8 font-light relative"
             style={{ 
-              textShadow: '0 0 20px rgba(255, 215, 0, 0.5)',
-              letterSpacing: '0.05em'
+              textShadow: '0 0 20px rgba(255, 215, 0, 0.6), 0 0 40px rgba(255, 165, 0, 0.4)',
+              letterSpacing: '0.05em',
+              fontFamily: "'Quicksand', 'Poppins', sans-serif"
             }}
             key={currentStep}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            {currentStepData.question}
+            {/* Subtle pulsing glow effect */}
+            <motion.div
+              className="absolute inset-0 blur-xl opacity-30"
+              animate={{
+                scale: [1, 1.05, 1],
+                opacity: [0.3, 0.5, 0.3]
+              }}
+              transition={{
+                duration: 4,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+              style={{
+                background: 'radial-gradient(ellipse at center, rgba(255, 215, 0, 0.6) 0%, rgba(255, 165, 0, 0.4) 50%, transparent 100%)',
+                zIndex: -1
+              }}
+            />
+            <span className="relative z-10">{currentStepData.question}</span>
           </motion.h2>
 
-          {/* Input */}
+          {/* Magical Input */}
           <motion.div
             key={`input-${currentStep}`}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="mb-8"
+            className="mb-8 relative"
           >
+            {/* Sparkle particles around input */}
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute -top-2 left-4 w-1 h-1 bg-yellow-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s', animationDuration: '2s' }}></div>
+              <div className="absolute -top-1 right-6 w-1 h-1 bg-amber-200 rounded-full animate-ping opacity-70" style={{ animationDelay: '0.5s', animationDuration: '2.5s' }}></div>
+              <div className="absolute -bottom-2 left-8 w-1 h-1 bg-yellow-400 rounded-full animate-ping opacity-50" style={{ animationDelay: '1s', animationDuration: '3s' }}></div>
+              <div className="absolute -bottom-1 right-4 w-1 h-1 bg-amber-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '1.5s', animationDuration: '2.2s' }}></div>
+            </div>
+            
             <textarea
               value={formData[currentStepData.field as keyof typeof formData]}
               onChange={(e) => handleInputChange(currentStepData.field, e.target.value)}
               placeholder={currentStepData.placeholder}
-              className="w-full max-w-md mx-auto bg-white/10 border border-white/20 rounded-xl px-6 py-4 text-white placeholder-white/50 resize-none focus:outline-none focus:border-yellow-400/50 focus:bg-white/15 transition-all duration-300 backdrop-blur-sm"
+              className="w-full max-w-md mx-auto bg-gradient-to-r from-white/10 via-white/15 to-white/10 border border-yellow-300/30 rounded-xl px-6 py-4 text-white placeholder-white/60 resize-none focus:outline-none focus:border-yellow-400/60 focus:from-white/15 focus:via-white/20 focus:to-white/15 transition-all duration-500 backdrop-blur-sm relative z-10"
               rows={4}
               style={{
                 fontFamily: "'Quicksand', 'Poppins', sans-serif",
-                letterSpacing: '0.05em'
+                letterSpacing: '0.05em',
+                textShadow: '0 0 5px rgba(255, 255, 255, 0.3)',
+                boxShadow: '0 0 20px rgba(255, 215, 0, 0.2), inset 0 0 20px rgba(255, 215, 0, 0.1)'
               }}
             />
+            
+            {/* Shimmer effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transform -skew-x-12 animate-shimmer rounded-xl pointer-events-none"></div>
           </motion.div>
 
-          {/* Navigation */}
+          {/* Magical Navigation */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -239,28 +301,54 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
             {currentStep > 0 && (
               <motion.button
                 onClick={handleBack}
-                className="px-6 py-3 bg-transparent border border-white/30 text-white rounded-full hover:bg-white/10 transition-all duration-300 backdrop-blur-sm"
+                className="relative px-6 py-3 bg-transparent border border-white/30 text-white rounded-full hover:bg-white/10 transition-all duration-300 backdrop-blur-sm overflow-hidden"
+                style={{
+                  fontFamily: "'Quicksand', 'Poppins', sans-serif",
+                  letterSpacing: '0.1em',
+                  textShadow: '0 0 10px rgba(255, 255, 255, 0.5)',
+                  textTransform: 'uppercase'
+                }}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                Back
+                {/* Subtle sparkles for back button */}
+                <div className="absolute inset-0 pointer-events-none">
+                  <div className="absolute top-1 left-2 w-1 h-1 bg-white/40 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s', animationDuration: '3s' }}></div>
+                  <div className="absolute bottom-1 right-2 w-1 h-1 bg-white/30 rounded-full animate-ping opacity-50" style={{ animationDelay: '1.5s', animationDuration: '2.5s' }}></div>
+                </div>
+                <span className="relative z-10">Back</span>
               </motion.button>
             )}
             
             <motion.button
               onClick={handleNext}
               disabled={!formData[currentStepData.field as keyof typeof formData].trim() || isGenerating}
-              className="px-8 py-3 bg-gradient-to-r from-yellow-400/20 via-amber-300/25 to-yellow-400/20 hover:from-yellow-400/30 hover:via-amber-300/35 hover:to-yellow-400/30 text-white rounded-full transition-all duration-300 backdrop-blur-sm border border-yellow-400/20 hover:border-yellow-400/40 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="relative px-8 py-3 bg-gradient-to-r from-yellow-400/20 via-amber-300/25 to-yellow-400/20 hover:from-yellow-400/30 hover:via-amber-300/35 hover:to-yellow-400/30 text-white rounded-full transition-all duration-500 backdrop-blur-sm border border-yellow-300/20 hover:border-yellow-300/40 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
               style={{
                 fontFamily: "'Quicksand', 'Poppins', sans-serif",
                 letterSpacing: '0.1em',
-                textShadow: '0 0 10px rgba(255, 215, 0, 0.5)',
+                textShadow: '0 0 10px rgba(255, 215, 0, 0.5), 0 0 20px rgba(255, 165, 0, 0.3)',
                 textTransform: 'uppercase'
               }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
-              {isGenerating ? 'Generating...' : currentStep === steps.length - 1 ? 'Generate Plan' : 'Next'}
+              {/* Sparkle particles */}
+              <div className="absolute inset-0 pointer-events-none">
+                <div className="absolute top-2 left-4 w-1 h-1 bg-yellow-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s', animationDuration: '2s' }}></div>
+                <div className="absolute top-3 right-6 w-1 h-1 bg-amber-200 rounded-full animate-ping opacity-70" style={{ animationDelay: '0.5s', animationDuration: '2.5s' }}></div>
+                <div className="absolute bottom-2 left-8 w-1 h-1 bg-yellow-400 rounded-full animate-ping opacity-50" style={{ animationDelay: '1s', animationDuration: '3s' }}></div>
+                <div className="absolute bottom-3 right-4 w-1 h-1 bg-amber-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '1.5s', animationDuration: '2.2s' }}></div>
+                <div className="absolute top-1/2 left-2 w-1 h-1 bg-yellow-200 rounded-full animate-ping opacity-40" style={{ animationDelay: '2s', animationDuration: '2.8s' }}></div>
+                <div className="absolute top-1/2 right-2 w-1 h-1 bg-amber-400 rounded-full animate-ping opacity-55" style={{ animationDelay: '2.5s', animationDuration: '2.3s' }}></div>
+              </div>
+              
+              {/* Shimmer effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-shimmer"></div>
+              
+              <span className="relative z-10">
+                {isGenerating ? 'Generating...' : currentStep === steps.length - 1 ? 'Generate Plan' : 'Next'}
+              </span>
             </motion.button>
           </motion.div>
         </motion.div>
