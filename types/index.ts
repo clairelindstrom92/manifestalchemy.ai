@@ -83,6 +83,23 @@ export interface ConversationRequest {
   userMessage: string;
 }
 
+export interface SpeechRecognitionInstance {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: (event: any) => void;
+  onerror: (event: any) => void;
+  onend: () => void;
+  start: () => void;
+  stop: () => void;
+}
+
+export interface APIError {
+  message: string;
+  code?: string;
+  status?: number;
+}
+
 export interface OpenAIResponse {
   steps: ManifestationStep[];
   reasoning: string;

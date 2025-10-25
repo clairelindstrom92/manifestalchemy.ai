@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Sparkles, RotateCcw, Home, MessageCircle, Target, Calendar, TrendingUp, Zap, Heart, Eye } from 'lucide-react';
 import { ManifestationProject, DiscoveredManifestation } from '../types';
-import AnimatedStarBackground from './AnimatedStarBackground';
+import MagicalBackground from './shared/MagicalBackground';
+import MagicalButton from './shared/MagicalButton';
+import { MAGICAL_STYLES } from '../lib/constants';
 
 interface ManifestationDashboardProps {
   project: ManifestationProject;
@@ -26,8 +28,8 @@ interface ManifestationIcon {
 export default function ManifestationDashboard({ project, onRestart, onManifestationClick }: ManifestationDashboardProps) {
   const [selectedManifestation, setSelectedManifestation] = useState<string | null>(null);
 
-  // Helper functions for dynamic manifestation tiles
-  const getIconForCategory = (category: string): React.ReactNode => {
+  // Memoized helper functions for dynamic manifestation tiles
+  const getIconForCategory = useMemo(() => (category: string): React.ReactNode => {
     switch (category.toLowerCase()) {
       case 'primary':
       case 'core':
@@ -47,9 +49,9 @@ export default function ManifestationDashboard({ project, onRestart, onManifesta
       default:
         return <Sparkles className="w-8 h-8" />;
     }
-  };
+  }, []);
 
-  const getColorForStatus = (status: DiscoveredManifestation['status']): string => {
+  const getColorForStatus = useMemo(() => (status: DiscoveredManifestation['status']): string => {
     switch (status) {
       case 'discovered':
         return 'from-yellow-400/20 via-amber-300/25 to-yellow-400/20';
@@ -62,9 +64,9 @@ export default function ManifestationDashboard({ project, onRestart, onManifesta
       default:
         return 'from-yellow-400/20 via-amber-300/25 to-yellow-400/20';
     }
-  };
+  }, []);
 
-  const getStatusText = (status: DiscoveredManifestation['status']): string => {
+  const getStatusText = useMemo(() => (status: DiscoveredManifestation['status']): string => {
     switch (status) {
       case 'discovered':
         return 'Newly discovered';
@@ -77,19 +79,22 @@ export default function ManifestationDashboard({ project, onRestart, onManifesta
       default:
         return 'Discovered';
     }
-  };
+  }, []);
 
-  // Generate dynamic manifestations from AI discoveries
-  const manifestations: ManifestationIcon[] = project.discoveredManifestations?.map(manifestation => ({
-    id: manifestation.id,
-    name: manifestation.name,
-    icon: getIconForCategory(manifestation.category),
-    color: getColorForStatus(manifestation.status),
-    description: manifestation.description,
-    dynamic: `${manifestation.category} — ${getStatusText(manifestation.status)}`,
-    status: manifestation.status,
-    confidence: manifestation.confidence
-  })) || [];
+  // Memoized manifestations array
+  const manifestations: ManifestationIcon[] = useMemo(() => 
+    project.discoveredManifestations?.map(manifestation => ({
+      id: manifestation.id,
+      name: manifestation.name,
+      icon: getIconForCategory(manifestation.category),
+      color: getColorForStatus(manifestation.status),
+      description: manifestation.description,
+      dynamic: `${manifestation.category} — ${getStatusText(manifestation.status)}`,
+      status: manifestation.status,
+      confidence: manifestation.confidence
+    })) || [],
+    [project.discoveredManifestations, getIconForCategory, getColorForStatus, getStatusText]
+  );
 
   const handleManifestationClick = (manifestationId: string) => {
     setSelectedManifestation(manifestationId);
@@ -98,91 +103,59 @@ export default function ManifestationDashboard({ project, onRestart, onManifesta
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Magical Background */}
-      <div 
-        className="absolute inset-0"
-        style={{
-          background: 'radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.1) 0%, rgba(255, 165, 0, 0.05) 25%, rgba(0, 0, 0, 0.8) 50%, rgba(0, 0, 0, 0.9) 100%)'
-        }}
-      />
-      
-      {/* Background Image Overlay */}
-      <div 
-        className="absolute inset-0 opacity-30 mix-blend-overlay"
-        style={{ backgroundImage: 'url("/BACKGROUND.png")' }}
-      />
-      
-      {/* Animated Stars */}
-      <AnimatedStarBackground />
+      <MagicalBackground />
       
       <div className="relative z-10 p-6">
-      {/* Magical Header */}
-      <motion.div 
-        className="flex items-center justify-between mb-8 relative z-10"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        <div className="flex items-center gap-4">
-          {/* Glowing Logo */}
-          <motion.div
-            animate={{ 
-              scale: [1, 1.1, 1],
-              opacity: [0.8, 1, 0.8]
-            }}
-            transition={{ duration: 3, repeat: Infinity }}
-            className="relative"
-          >
-            <img 
-              src="/custom-logo.png" 
-              alt="Manifest Alchemy" 
-              className="w-12 h-12"
-              style={{
-                filter: 'drop-shadow(0 0 20px rgba(255, 215, 0, 0.6))'
-              }}
-            />
-          </motion.div>
-          
-          {/* Magical Title */}
-          <motion.h1 
-            className="text-4xl font-bold text-white ballet-font"
-            style={{
-              textShadow: '0 0 20px rgba(255, 215, 0, 0.6), 0 0 40px rgba(255, 165, 0, 0.4)',
-              letterSpacing: '0.05em'
-            }}
-          >
-            Alchemy Board
-          </motion.h1>
-        </div>
-        
-        {/* Magical Restart Button */}
-        <motion.button
-          onClick={onRestart}
-          className="relative px-6 py-3 bg-gradient-to-r from-yellow-400/20 via-amber-300/25 to-yellow-400/20 hover:from-yellow-400/30 hover:via-amber-300/35 hover:to-yellow-400/30 text-white rounded-full transition-all duration-500 backdrop-blur-sm border border-yellow-300/20 hover:border-yellow-300/40 overflow-hidden"
-          style={{
-            fontFamily: "'Quicksand', 'Poppins', sans-serif",
-            letterSpacing: '0.1em',
-            textShadow: '0 0 10px rgba(255, 215, 0, 0.5)',
-            textTransform: 'uppercase'
-          }}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          title="Clear the board and begin a fresh casting."
+        {/* Magical Header */}
+        <motion.div 
+          className="flex items-center justify-between mb-8 relative z-10"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
         >
-          {/* Sparkle particles */}
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-1 left-2 w-1 h-1 bg-yellow-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s' }}></div>
-            <div className="absolute top-2 right-3 w-1 h-1 bg-amber-200 rounded-full animate-ping opacity-70" style={{ animationDelay: '0.5s' }}></div>
+          <div className="flex items-center gap-4">
+            {/* Glowing Logo */}
+            <motion.div
+              animate={{ 
+                scale: [1, 1.1, 1],
+                opacity: [0.8, 1, 0.8]
+              }}
+              transition={{ duration: 3, repeat: Infinity }}
+              className="relative"
+            >
+              <img 
+                src="/custom-logo.png" 
+                alt="Manifest Alchemy" 
+                className="w-12 h-12"
+                style={{
+                  filter: 'drop-shadow(0 0 20px rgba(255, 215, 0, 0.6))'
+                }}
+              />
+            </motion.div>
+            
+            {/* Magical Title */}
+            <motion.h1 
+              className="text-4xl font-bold text-white ballet-font"
+              style={{
+                textShadow: MAGICAL_STYLES.textShadow,
+                letterSpacing: MAGICAL_STYLES.letterSpacing
+              }}
+            >
+              Alchemy Board
+            </motion.h1>
           </div>
           
-          <div className="flex items-center gap-2">
-            <RotateCcw className="w-4 h-4" />
-            Recast Session
-          </div>
-          
-          {/* Shimmer effect */}
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent transform -skew-x-12 animate-shimmer rounded-full pointer-events-none overflow-hidden" style={{ animationDuration: '3s' }}></div>
-        </motion.button>
-      </motion.div>
+          {/* Magical Restart Button */}
+          <MagicalButton
+            onClick={onRestart}
+            size="md"
+            title="Clear the board and begin a fresh casting."
+          >
+            <div className="flex items-center gap-2">
+              <RotateCcw className="w-4 h-4" />
+              Recast Session
+            </div>
+          </MagicalButton>
+        </motion.div>
 
       {/* Magical Welcome Message */}
       <motion.div
@@ -203,9 +176,9 @@ export default function ManifestationDashboard({ project, onRestart, onManifesta
         <h2 
           className="text-3xl font-semibold text-white mb-4 relative z-10"
           style={{
-            textShadow: '0 0 20px rgba(255, 215, 0, 0.6), 0 0 40px rgba(255, 165, 0, 0.4)',
-            fontFamily: "'Quicksand', 'Poppins', sans-serif",
-            letterSpacing: '0.05em'
+            textShadow: MAGICAL_STYLES.textShadow,
+            fontFamily: MAGICAL_STYLES.fontFamily,
+            letterSpacing: MAGICAL_STYLES.letterSpacing
           }}
         >
           Welcome back, {project.userData.userName || 'Manifestor'}. Manifest Alchemy AI is attuned.
@@ -214,8 +187,8 @@ export default function ManifestationDashboard({ project, onRestart, onManifesta
         <p 
           className="text-white/80 text-lg max-w-2xl mx-auto relative z-10"
           style={{
-            textShadow: '0 0 10px rgba(255, 215, 0, 0.3)',
-            fontFamily: "'Quicksand', 'Poppins', sans-serif"
+            textShadow: MAGICAL_STYLES.textShadowSubtle,
+            fontFamily: MAGICAL_STYLES.fontFamily
           }}
         >
           Choose a tile to continue your manifestation.
@@ -280,34 +253,15 @@ export default function ManifestationDashboard({ project, onRestart, onManifesta
               Begin a conversation to discover your manifestations.
             </p>
             
-            <motion.button
+            <MagicalButton
               onClick={() => onManifestationClick('new-conversation')}
-              className="relative px-8 py-4 bg-gradient-to-r from-yellow-400/20 via-amber-300/25 to-yellow-400/20 hover:from-yellow-400/30 hover:via-amber-300/35 hover:to-yellow-400/30 text-white rounded-full transition-all duration-500 backdrop-blur-sm border border-yellow-300/20 hover:border-yellow-300/40 overflow-hidden"
-              style={{
-                fontFamily: "'Quicksand', 'Poppins', sans-serif",
-                letterSpacing: '0.1em',
-                textShadow: '0 0 10px rgba(255, 215, 0, 0.5)',
-                textTransform: 'uppercase'
-              }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              size="lg"
             >
-              {/* Sparkle particles */}
-              <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute top-2 left-4 w-1 h-1 bg-yellow-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s' }}></div>
-                <div className="absolute top-3 right-6 w-1 h-1 bg-amber-200 rounded-full animate-ping opacity-70" style={{ animationDelay: '0.5s' }}></div>
-                <div className="absolute bottom-2 left-8 w-1 h-1 bg-yellow-400 rounded-full animate-ping opacity-50" style={{ animationDelay: '1s' }}></div>
-                <div className="absolute bottom-3 right-4 w-1 h-1 bg-amber-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '1.5s' }}></div>
-              </div>
-              
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5" />
                 Start Manifestation Discovery
               </div>
-              
-              {/* Shimmer effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent transform -skew-x-12 animate-shimmer rounded-full pointer-events-none overflow-hidden" style={{ animationDuration: '3s' }}></div>
-            </motion.button>
+            </MagicalButton>
           </div>
         </motion.div>
       )}

@@ -2,8 +2,13 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ManifestationProject, ConversationMessage, ConversationResponse } from '../types';
-import AnimatedStarBackground from './AnimatedStarBackground';
+import { ManifestationProject } from '../types';
+import MagicalBackground from './shared/MagicalBackground';
+import MagicalButton from './shared/MagicalButton';
+import MagicalInput from './shared/MagicalInput';
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition';
+import { useConversation } from '../hooks/useConversation';
+import { MAGICAL_STYLES } from '../lib/constants';
 
 interface ChatInterfaceProps {
   onComplete: (project: ManifestationProject) => void;
@@ -12,125 +17,29 @@ interface ChatInterfaceProps {
 }
 
 export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
-  const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
   const [currentInput, setCurrentInput] = useState('');
-  const [isConversing, setIsConversing] = useState(false);
-  const [aiThinking, setAiThinking] = useState(false);
-  const [readyToGenerate, setReadyToGenerate] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [recognition, setRecognition] = useState<any>(null);
-  const [extractedData, setExtractedData] = useState<any>({});
+  
+  const { isListening, transcript, startListening, stopListening, isSupported } = useSpeechRecognition();
+  const { 
+    history, 
+    isThinking, 
+    readyToGenerate, 
+    extractedData, 
+    sendMessage, 
+    currentAIMessage 
+  } = useConversation();
 
-  // Initialize speech recognition
+  // Update input when speech recognition completes
   React.useEffect(() => {
-    if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
-      const SpeechRecognition = (window as any).webkitSpeechRecognition;
-      const recognitionInstance = new SpeechRecognition();
-      recognitionInstance.continuous = false;
-      recognitionInstance.interimResults = false;
-      recognitionInstance.lang = 'en-US';
-
-      recognitionInstance.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setCurrentInput(transcript);
-        setIsListening(false);
-      };
-
-      recognitionInstance.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error);
-        setIsListening(false);
-      };
-
-      recognitionInstance.onend = () => {
-        setIsListening(false);
-      };
-
-      setRecognition(recognitionInstance);
-    } else {
-      console.warn('Speech recognition not supported in this browser');
+    if (transcript) {
+      setCurrentInput(transcript);
     }
-  }, []);
+  }, [transcript]);
 
-  const startListening = () => {
-    if (recognition) {
-      try {
-        setIsListening(true);
-        recognition.start();
-      } catch (error) {
-        console.error('Failed to start speech recognition:', error);
-        setIsListening(false);
-      }
-    } else {
-      console.warn('Speech recognition not available');
-    }
-  };
-
-  const stopListening = () => {
-    if (recognition) {
-      recognition.stop();
-      setIsListening(false);
-    }
-  };
-
-  const sendMessage = async (message: string) => {
-    if (!message.trim()) return;
-
-    // Add user message to history
-    const userMessage: ConversationMessage = {
-      role: 'user',
-      content: message,
-      timestamp: new Date()
-    };
-
-    const newHistory = [...conversationHistory, userMessage];
-    setConversationHistory(newHistory);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await sendMessage(currentInput);
     setCurrentInput('');
-    setAiThinking(true);
-
-    try {
-      const response = await fetch('/api/conversation', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          conversationHistory: newHistory,
-          userMessage: message
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get AI response');
-      }
-
-      const data: ConversationResponse = await response.json();
-      
-      // Add AI response to history
-      const aiMessage: ConversationMessage = {
-        role: 'assistant',
-        content: data.aiResponse,
-        timestamp: new Date()
-      };
-
-      setConversationHistory([...newHistory, aiMessage]);
-      setReadyToGenerate(data.readyToGenerate);
-      setExtractedData(data.extractedData);
-      
-      if (!isConversing) {
-        setIsConversing(true);
-      }
-    } catch (error) {
-      console.error('Error in conversation:', error);
-      // Add fallback AI response
-      const fallbackMessage: ConversationMessage = {
-        role: 'assistant',
-        content: 'I am attuning to your manifestation frequency. Please share your core intention.',
-        timestamp: new Date()
-      };
-      setConversationHistory([...newHistory, fallbackMessage]);
-    } finally {
-      setAiThinking(false);
-    }
   };
 
   const generateManifestations = async () => {
@@ -144,7 +53,7 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          conversationHistory,
+          conversationHistory: history,
           extractedData,
           existingManifestations: []
         }),
@@ -175,7 +84,7 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
         },
         body: JSON.stringify({
           context: {
-            manifestation: conversationHistory.map(msg => msg.content).join(' '),
+            manifestation: history.map(msg => msg.content).join(' '),
             extractedData
           }
         }),
@@ -194,7 +103,7 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
           manifestation_category: 'general',
           environment_description: 'Current reality',
           core_emotion: 'determined',
-          symbolic_elements: conversationHistory.map(msg => msg.content).join(' '),
+          symbolic_elements: history.map(msg => msg.content).join(' '),
           manifestation_title: extractedData.coreDesire || 'Your manifestation'
         },
         steps: (data.alchemy_sequences || data.steps || []).map((step: string, index: number) => ({
@@ -216,32 +125,9 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    sendMessage(currentInput);
-  };
-
-  // Get the current AI message (last assistant message)
-  const currentAIMessage = conversationHistory.filter(msg => msg.role === 'assistant').pop();
-
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Magical Background */}
-      <div 
-        className="absolute inset-0"
-        style={{
-          background: 'radial-gradient(circle at 20% 50%, rgba(255, 215, 0, 0.1) 0%, rgba(255, 165, 0, 0.05) 25%, rgba(0, 0, 0, 0.8) 50%, rgba(0, 0, 0, 0.9) 100%)'
-        }}
-      />
-      
-      {/* Background Image Overlay */}
-      <div 
-        className="absolute inset-0 opacity-30 mix-blend-overlay"
-        style={{ backgroundImage: 'url("/BACKGROUND.png")' }}
-      />
-      
-      {/* Animated Stars */}
-      <AnimatedStarBackground />
+      <MagicalBackground />
       
       <div className="relative z-10 p-6">
         <div className="max-w-4xl mx-auto text-center relative z-10">
@@ -255,9 +141,9 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
             <motion.h2 
               className="text-2xl md:text-3xl text-white mb-8 font-light relative"
               style={{ 
-                textShadow: '0 0 20px rgba(255, 215, 0, 0.6), 0 0 40px rgba(255, 165, 0, 0.4)',
-                fontFamily: "'Quicksand', 'Poppins', sans-serif",
-                letterSpacing: '0.05em',
+                textShadow: MAGICAL_STYLES.textShadow,
+                fontFamily: MAGICAL_STYLES.fontFamily,
+                letterSpacing: MAGICAL_STYLES.letterSpacing,
                 textTransform: 'uppercase'
               }}
             >
@@ -275,7 +161,7 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
             />
 
             {/* AI Thinking Animation */}
-            {aiThinking && (
+            {isThinking && (
               <motion.div
                 className="mb-8"
                 initial={{ opacity: 0 }}
@@ -302,7 +188,7 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
                 <p 
                   className="text-white/60 text-lg"
                   style={{
-                    fontFamily: "'Quicksand', 'Poppins', sans-serif"
+                    fontFamily: MAGICAL_STYLES.fontFamily
                   }}
                 >
                   Manifest Alchemy AI is analyzing...
@@ -311,7 +197,7 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
             )}
 
             {/* Current AI Message */}
-            {currentAIMessage && !aiThinking && (
+            {currentAIMessage && !isThinking && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -320,8 +206,8 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
                 <div 
                   className="text-white text-lg leading-relaxed max-w-2xl mx-auto"
                   style={{
-                    textShadow: '0 0 10px rgba(255, 215, 0, 0.3)',
-                    fontFamily: "'Quicksand', 'Poppins', sans-serif"
+                    textShadow: MAGICAL_STYLES.textShadowSubtle,
+                    fontFamily: MAGICAL_STYLES.fontFamily
                   }}
                 >
                   {currentAIMessage.content}
@@ -337,70 +223,26 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
               className="relative mb-6"
             >
               <form onSubmit={handleSubmit}>
-                <div className="relative max-w-xl mx-auto">
-                  <textarea
-                    value={currentInput}
-                    onChange={(e) => setCurrentInput(e.target.value)}
-                    placeholder="Speak your manifestation into existence or type..."
-                    className="w-full px-6 py-4 bg-gradient-to-r from-yellow-400/10 via-amber-300/15 to-yellow-400/10 border border-yellow-300/20 rounded-xl text-white placeholder-white/50 resize-none focus:outline-none focus:border-yellow-300/40 transition-all duration-300 backdrop-blur-sm"
-                    style={{
-                      textShadow: '0 0 10px rgba(255, 215, 0, 0.3)',
-                      fontFamily: "'Quicksand', 'Poppins', sans-serif",
-                      letterSpacing: '0.05em',
-                      boxShadow: '0 0 20px rgba(255, 215, 0, 0.1)'
-                    }}
-                    rows={4}
-                    disabled={aiThinking}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        sendMessage(currentInput);
-                      }
-                    }}
-                  />
-                  
-                  {/* Voice Button */}
-                  <motion.button
-                    type="button"
-                    onClick={isListening ? stopListening : startListening}
-                    className="absolute top-3 right-3 w-10 h-10 bg-gradient-to-r from-yellow-400/20 via-amber-300/25 to-yellow-400/20 hover:from-yellow-400/30 hover:via-amber-300/35 hover:to-yellow-400/30 border border-yellow-300/30 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-sm"
-                    style={{
-                      boxShadow: '0 0 15px rgba(255, 215, 0, 0.3)'
-                    }}
-                    whileHover={{ scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
-                    animate={isListening ? { scale: [1, 1.1, 1] } : {}}
-                    transition={isListening ? { duration: 1, repeat: Infinity } : {}}
-                    disabled={aiThinking}
-                  >
-                    {isListening ? (
-                      <div className="w-3 h-3 bg-red-400 rounded-full animate-pulse"></div>
-                    ) : (
-                      <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
-                    )}
-                  </motion.button>
-                  
-                  {/* Shimmer effect */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/2 to-transparent transform -skew-x-12 animate-shimmer rounded-xl pointer-events-none overflow-hidden" style={{ animationDuration: '6s' }}></div>
-                </div>
+                <MagicalInput
+                  value={currentInput}
+                  onChange={setCurrentInput}
+                  onSubmit={() => sendMessage(currentInput)}
+                  disabled={isThinking}
+                  withVoice={isSupported}
+                  onVoiceClick={isListening ? stopListening : startListening}
+                  isListening={isListening}
+                />
                 
                 {/* Submit Button */}
-                <motion.button
-                  type="submit"
-                  disabled={!currentInput.trim() || aiThinking}
-                  className="mt-4 px-6 py-2 bg-gradient-to-r from-yellow-400/20 via-amber-300/25 to-yellow-400/20 hover:from-yellow-400/30 hover:via-amber-300/35 hover:to-yellow-400/30 text-white rounded-full transition-all duration-300 backdrop-blur-sm border border-yellow-300/20 hover:border-yellow-300/40 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{
-                    fontFamily: "'Quicksand', 'Poppins', sans-serif",
-                    letterSpacing: '0.05em',
-                    textShadow: '0 0 10px rgba(255, 215, 0, 0.3)',
-                    textTransform: 'uppercase',
-                    fontSize: '0.8rem'
-                  }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                <MagicalButton
+                  onClick={() => sendMessage(currentInput)}
+                  disabled={!currentInput.trim() || isThinking}
+                  loading={isThinking}
+                  size="sm"
+                  className="mt-4"
                 >
-                  {aiThinking ? 'Processing...' : 'Continue'}
-                </motion.button>
+                  {isThinking ? 'Processing...' : 'Continue'}
+                </MagicalButton>
               </form>
             </motion.div>
 
@@ -411,33 +253,13 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
                 animate={{ opacity: 1, scale: 1 }}
                 className="flex justify-center"
               >
-                <motion.button
+                <MagicalButton
                   onClick={generateManifestations}
-                  className="relative px-8 py-3 bg-gradient-to-r from-yellow-400/20 via-amber-300/25 to-yellow-400/20 hover:from-yellow-400/30 hover:via-amber-300/35 hover:to-yellow-400/30 text-white rounded-full transition-all duration-500 backdrop-blur-sm border border-yellow-300/20 hover:border-yellow-300/40 overflow-hidden"
-                  style={{
-                    fontFamily: "'Quicksand', 'Poppins', sans-serif",
-                    letterSpacing: '0.1em',
-                    textShadow: '0 0 10px rgba(255, 215, 0, 0.5)',
-                    textTransform: 'uppercase',
-                    fontSize: '0.9rem'
-                  }}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  size="lg"
                   title="Manifest Alchemy AI has gathered sufficient data"
                 >
-                  {/* Sparkle particles */}
-                  <div className="absolute inset-0 pointer-events-none">
-                    <div className="absolute top-1 left-2 w-1 h-1 bg-yellow-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s' }}></div>
-                    <div className="absolute top-2 right-3 w-1 h-1 bg-amber-200 rounded-full animate-ping opacity-70" style={{ animationDelay: '0.5s' }}></div>
-                    <div className="absolute bottom-1 left-4 w-1 h-1 bg-yellow-400 rounded-full animate-ping opacity-50" style={{ animationDelay: '1s' }}></div>
-                    <div className="absolute bottom-2 right-2 w-1 h-1 bg-amber-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '1.5s' }}></div>
-                  </div>
-                  
                   Generate Manifestations
-                  
-                  {/* Shimmer effect */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent transform -skew-x-12 animate-shimmer rounded-full pointer-events-none overflow-hidden" style={{ animationDuration: '3s' }}></div>
-                </motion.button>
+                </MagicalButton>
               </motion.div>
             )}
           </motion.div>
