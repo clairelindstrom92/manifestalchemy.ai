@@ -162,15 +162,16 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="bg-white/5 backdrop-blur-sm rounded-2xl p-12 border border-white/10"
+          className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10"
         >
           {/* Magical Question */}
           <motion.h2 
-            className="text-3xl md:text-4xl text-white mb-12 font-light relative"
+            className="text-2xl md:text-3xl text-white mb-8 font-light relative"
             style={{ 
               textShadow: '0 0 20px rgba(255, 215, 0, 0.6), 0 0 40px rgba(255, 165, 0, 0.4)',
               letterSpacing: '0.05em',
-              fontFamily: "'Quicksand', 'Poppins', sans-serif"
+              fontFamily: "'Quicksand', 'Poppins', sans-serif",
+              textTransform: 'uppercase'
             }}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -201,7 +202,7 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="mb-12 relative"
+            className="mb-6 relative"
           >
             {/* Sparkle particles around input */}
             <div className="absolute inset-0 pointer-events-none">
@@ -218,8 +219,8 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
                 value={formData.manifestation}
                 onChange={(e) => setFormData(prev => ({ ...prev, manifestation: e.target.value }))}
                 placeholder="Speak your manifestation into existence... or type it here..."
-                className="w-full max-w-2xl mx-auto bg-gradient-to-r from-white/10 via-white/15 to-white/10 border border-yellow-300/30 rounded-xl px-8 py-6 text-white placeholder-white/60 resize-none focus:outline-none focus:border-yellow-400/60 focus:from-white/15 focus:via-white/20 focus:to-white/15 transition-all duration-500 backdrop-blur-sm relative z-10"
-                rows={6}
+                className="w-full max-w-xl mx-auto bg-gradient-to-r from-white/10 via-white/15 to-white/10 border border-yellow-300/30 rounded-xl px-6 py-4 text-white placeholder-white/60 resize-none focus:outline-none focus:border-yellow-400/60 focus:from-white/15 focus:via-white/20 focus:to-white/15 transition-all duration-500 backdrop-blur-sm relative z-10"
+                rows={4}
                 style={{
                   fontFamily: "'Quicksand', 'Poppins', sans-serif",
                   letterSpacing: '0.05em',
@@ -231,7 +232,7 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
               {/* Voice Button */}
               <motion.button
                 onClick={isListening ? stopListening : startListening}
-                className="absolute top-4 right-4 w-12 h-12 bg-gradient-to-r from-yellow-400/20 via-amber-300/25 to-yellow-400/20 hover:from-yellow-400/30 hover:via-amber-300/35 hover:to-yellow-400/30 border border-yellow-300/30 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-sm"
+                className="absolute top-3 right-3 w-10 h-10 bg-gradient-to-r from-yellow-400/20 via-amber-300/25 to-yellow-400/20 hover:from-yellow-400/30 hover:via-amber-300/35 hover:to-yellow-400/30 border border-yellow-300/30 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-sm"
                 style={{
                   boxShadow: '0 0 15px rgba(255, 215, 0, 0.3)'
                 }}
@@ -241,9 +242,9 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
                 transition={isListening ? { duration: 1, repeat: Infinity } : {}}
               >
                 {isListening ? (
-                  <div className="w-4 h-4 bg-red-400 rounded-full animate-pulse"></div>
+                  <div className="w-3 h-3 bg-red-400 rounded-full animate-pulse"></div>
                 ) : (
-                  <div className="w-4 h-4 bg-yellow-400 rounded-full"></div>
+                  <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
                 )}
               </motion.button>
               
@@ -262,13 +263,13 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
             <motion.button
               onClick={generateManifestationPlan}
               disabled={!formData.manifestation.trim() || isGenerating}
-              className="relative px-12 py-4 bg-gradient-to-r from-yellow-400/20 via-amber-300/25 to-yellow-400/20 hover:from-yellow-400/30 hover:via-amber-300/35 hover:to-yellow-400/30 text-white rounded-full transition-all duration-500 backdrop-blur-sm border border-yellow-300/20 hover:border-yellow-300/40 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
+              className="relative px-8 py-3 bg-gradient-to-r from-yellow-400/20 via-amber-300/25 to-yellow-400/20 hover:from-yellow-400/30 hover:via-amber-300/35 hover:to-yellow-400/30 text-white rounded-full transition-all duration-500 backdrop-blur-sm border border-yellow-300/20 hover:border-yellow-300/40 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
               style={{
                 fontFamily: "'Quicksand', 'Poppins', sans-serif",
                 letterSpacing: '0.1em',
                 textShadow: '0 0 10px rgba(255, 215, 0, 0.5), 0 0 20px rgba(255, 165, 0, 0.3)',
                 textTransform: 'uppercase',
-                fontSize: '1.1rem'
+                fontSize: '0.9rem'
               }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
