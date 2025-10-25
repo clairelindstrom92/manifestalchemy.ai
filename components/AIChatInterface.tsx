@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ManifestationProject, DiscoveredManifestation } from '../types';
+import { ManifestationProject } from '../types';
 import MagicalBackground from './shared/MagicalBackground';
 import MagicalButton from './shared/MagicalButton';
 import MagicalInput from './shared/MagicalInput';
@@ -16,21 +16,17 @@ interface ChatInterfaceProps {
   project?: ManifestationProject;
 }
 
-export default function ChatInterface({ onComplete, manifestationId, project }: ChatInterfaceProps) {
+export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
   const [currentInput, setCurrentInput] = useState('');
   
   const { isListening, transcript, startListening, stopListening, isSupported } = useSpeechRecognition();
   const { 
     history, 
     isThinking, 
-    manifestationState,
-    progressVelocity,
-    saturationLevel,
-    nextActions,
+    readyToGenerate, 
     extractedData, 
     sendMessage, 
-    currentAIMessage,
-    readyForDashboard
+    currentAIMessage 
   } = useConversation();
 
   // Update input when speech recognition completes
@@ -46,7 +42,8 @@ export default function ChatInterface({ onComplete, manifestationId, project }: 
     setCurrentInput('');
   };
 
-  const generateManifestations = useCallback(async () => {
+  const generateManifestations = async () => {
+    if (!readyToGenerate) return;
 
     try {
       // Discover manifestations from conversation
@@ -65,7 +62,7 @@ export default function ChatInterface({ onComplete, manifestationId, project }: 
       let discoveredManifestations = [];
       if (discoveryResponse.ok) {
         const discoveryData = await discoveryResponse.json();
-        discoveredManifestations = discoveryData.discoveredManifestations?.map((manifestation: DiscoveredManifestation) => ({
+        discoveredManifestations = discoveryData.discoveredManifestations?.map((manifestation: any) => ({
           id: `manifestation-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           name: manifestation.name,
           description: manifestation.description,
@@ -75,11 +72,7 @@ export default function ChatInterface({ onComplete, manifestationId, project }: 
           confidence: manifestation.confidence,
           status: manifestation.status,
           source: 'ai-conversation' as const,
-          details: manifestation.details,
-          agentType: manifestation.agentType,
-          causalMap: manifestation.causalMap,
-          microActions: manifestation.microActions,
-          synchronicityTriggers: manifestation.synchronicityTriggers
+          details: manifestation.details
         })) || [];
       }
 
@@ -130,9 +123,7 @@ export default function ChatInterface({ onComplete, manifestationId, project }: 
     } catch (error) {
       console.error('Error generating manifestations:', error);
     }
-  }, [readyForDashboard, history, extractedData, onComplete]);
-
-  // Manual generation - user clicks button when ready
+  };
 
   return (
     <div className="min-h-screen relative overflow-hidden">
@@ -146,9 +137,9 @@ export default function ChatInterface({ onComplete, manifestationId, project }: 
             transition={{ duration: 0.8 }}
             className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10"
           >
-            {/* Contextual Title */}
+            {/* Magical Question */}
             <motion.h2 
-              className="text-2xl md:text-3xl text-white mb-2 font-light relative"
+              className="text-2xl md:text-3xl text-white mb-8 font-light relative"
               style={{ 
                 textShadow: MAGICAL_STYLES.textShadow,
                 fontFamily: MAGICAL_STYLES.fontFamily,
@@ -156,15 +147,8 @@ export default function ChatInterface({ onComplete, manifestationId, project }: 
                 textTransform: 'uppercase'
               }}
             >
-              {manifestationId && project
-                ? 'RE-ENTERING MANIFESTATION PORTAL'
-                : 'WHAT ARE YOU HERE TO MANIFEST?'}
+              WHAT ARE YOU HERE TO MANIFEST?
             </motion.h2>
-            {manifestationId && project && (
-              <div className="text-white/70 text-sm mb-6">
-                {project.userData?.manifestation_title || 'Active Manifestation'}
-              </div>
-            )}
 
             {/* Pulsing background glow */}
             <motion.div
@@ -231,54 +215,6 @@ export default function ChatInterface({ onComplete, manifestationId, project }: 
               </motion.div>
             )}
 
-            {/* Manifestation State Display */}
-            {manifestationState !== 'discovered' && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="mb-6"
-              >
-                <div className="bg-gradient-to-r from-yellow-400/20 via-amber-300/25 to-yellow-400/20 backdrop-blur-sm rounded-xl p-4 border border-yellow-300/20">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-white/80 text-sm font-medium">Manifestation State</span>
-                    <span className="text-yellow-300 text-sm font-bold capitalize">{manifestationState}</span>
-                  </div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-white/80 text-sm font-medium">Progress Velocity</span>
-                    <span className="text-yellow-300 text-sm font-bold">{Math.round(progressVelocity * 100)}%</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-white/80 text-sm font-medium">Saturation Level</span>
-                    <span className="text-yellow-300 text-sm font-bold">{Math.round(saturationLevel * 100)}%</span>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* AI Processing Status - No user actions needed */}
-            {manifestationState !== 'discovered' && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="mb-6"
-              >
-                <div className="bg-gradient-to-r from-yellow-400/20 via-amber-300/25 to-yellow-400/20 backdrop-blur-sm rounded-xl p-4 border border-yellow-300/20">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-white/80 text-sm font-medium">AI Processing Status</span>
-                    <span className="text-yellow-300 text-sm font-bold capitalize">{manifestationState}</span>
-                  </div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-white/80 text-sm font-medium">Algorithm Progress</span>
-                    <span className="text-yellow-300 text-sm font-bold">{Math.round(progressVelocity * 100)}%</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-white/80 text-sm font-medium">Data Saturation</span>
-                    <span className="text-yellow-300 text-sm font-bold">{Math.round(saturationLevel * 100)}%</span>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
             {/* Input Area */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -310,20 +246,22 @@ export default function ChatInterface({ onComplete, manifestationId, project }: 
               </form>
             </motion.div>
 
-            {/* Take Me To Dashboard (user-directed termination) */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="flex justify-center"
-            >
-              <MagicalButton
-                onClick={generateManifestations}
-                size="lg"
-                title="Exit conversation and create manifestation portals"
+            {/* Generate Manifestations Button */}
+            {readyToGenerate && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex justify-center"
               >
-                Take Me To Dashboard
-              </MagicalButton>
-            </motion.div>
+                <MagicalButton
+                  onClick={generateManifestations}
+                  size="lg"
+                  title="Manifest Alchemy AI has gathered sufficient data"
+                >
+                  Generate Manifestations
+                </MagicalButton>
+              </motion.div>
+            )}
           </motion.div>
         </div>
       </div>
