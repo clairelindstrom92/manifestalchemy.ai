@@ -2,25 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight } from 'lucide-react';
+import Image from 'next/image';
 import AIChatInterface from '../components/AIChatInterface';
 import ManifestationDashboard from '../components/ManifestationDashboard';
 import AnimatedStarBackground from '../components/AnimatedStarBackground';
 import { ManifestationProject } from '../types';
-
-// InstantText Component - shows text immediately
-const InstantText = ({ text, className, delay = 0 }: { text: string; className: string; delay?: number }) => {
-  return (
-    <motion.p 
-      className={className}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5, delay }}
-    >
-      {text}
-    </motion.p>
-  );
-};
 
 type AppState = 'welcome' | 'chat' | 'dashboard' | 'manifestation-';
 
@@ -218,9 +204,11 @@ export default function Home() {
                   }}
                 ></motion.div>
                 
-                <img 
+                <Image 
                   src="/custom-logo.png" 
                   alt="Manifest Alchemy Logo" 
+                  width={240}
+                  height={240}
                   className="w-full h-full object-contain relative z-10"
                 />
               </motion.div>
