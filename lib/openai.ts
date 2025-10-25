@@ -1,7 +1,7 @@
 import OpenAI from 'openai';
 import { UserData, ManifestationStep, OpenAIResponse } from '../types';
 
-function getOpenAIClient() {
+export function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY;
   
   if (!apiKey) {

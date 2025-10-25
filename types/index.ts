@@ -26,6 +26,27 @@ export interface ManifestationStep {
   timeframe: string;
 }
 
+export interface MicroAction {
+  id: string;
+  description: string;
+  category: 'environmental' | 'behavioral' | 'cognitive' | 'energetic';
+  timeframe: string;
+  dependencies: string[];
+  probability: number;
+  resistance: number;
+  dopamineTrigger?: string;
+}
+
+export interface CausalNode {
+  id: string;
+  action: string;
+  dependencies: string[];
+  probability: number;
+  resistance: number;
+  timeframe: string;
+  category: 'environmental' | 'behavioral' | 'cognitive' | 'energetic';
+}
+
 export interface DiscoveredManifestation {
   id: string;
   name: string;
@@ -37,6 +58,10 @@ export interface DiscoveredManifestation {
   status: 'discovered' | 'active' | 'materializing' | 'manifested';
   source: 'ai-conversation' | 'user-input';
   details?: string;
+  agentType?: string;
+  causalMap?: CausalNode[];
+  microActions?: MicroAction[];
+  synchronicityTriggers?: string[];
 }
 
 export interface ManifestationProject {

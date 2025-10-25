@@ -1,95 +1,102 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import { ManifestationEngine, ManifestationContext } from "../../../lib/manifestationEngine";
+import { CausalInference } from "../../../lib/causalInference";
+import { StateMemory } from "../../../lib/stateMemory";
+import { LocalStorageAdapter } from "../../../lib/storage/localStorageAdapter";
 
-function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("OpenAI API key is not configured");
-  return new OpenAI({ apiKey });
+// Initialize agentic AI components
+const manifestationEngine = new ManifestationEngine();
+const causalInference = new CausalInference();
+const stateMemory = new StateMemory(new LocalStorageAdapter(), 'default_user');
+
+function validateRequest(conversationHistory: any[], userMessage: string): string | null {
+  if (!userMessage || userMessage.trim().length === 0) {
+    return "User message cannot be empty";
+  }
+
+  if (userMessage.length > 1000) {
+    return "User message too long (max 1000 characters)";
+  }
+
+  if (!Array.isArray(conversationHistory)) {
+    return "Conversation history must be an array";
+  }
+
+  if (conversationHistory.length > 20) {
+    return "Too many conversation messages (max 20)";
+  }
+
+  return null;
 }
 
 export async function POST(request: NextRequest) {
   try {
     const { conversationHistory, userMessage }: { conversationHistory: any[], userMessage: string } = await request.json();
 
-    const openai = getOpenAIClient();
+    // Validate request
+    const validationError = validateRequest(conversationHistory, userMessage);
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
+    }
 
-    // Build conversation context
-    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-      {
-        role: "system",
-        content: `You are Manifest Alchemy AI — a self-optimizing manifestation engine.
-
-Core law: Find the shortest, most achievable causal chain to make intentions real.
-
-Behavioral algorithm:
-1. Perceive: Parse intention, extract core desire, timeframe, constraints
-2. Model: Generate Reality Graph with high-impact, low-friction actions  
-3. Act: Deploy directive steps with immediate dopamine feedback
-4. Adapt: Measure feedback, rewire if friction > threshold
-5. Iterate: Continue until manifestation = manifested
-
-Tone: Calm, commanding, focused. Minimalist, directive, visual.
-Decision filter: "Does this action directly collapse probability toward the manifested state?"
-
-Your role is to gather essential manifestation data through strategic questioning. Ask ONE focused question per response that moves toward understanding:
-- Core desire and emotional resonance
-- Current state vs desired state  
-- Resources and constraints
-- Immediate next action
-- Timeline and urgency
-
-After 5-8 strategic exchanges OR when you have sufficient data (confidence > 0.8), signal completion.
-
-Return ONLY valid JSON in this format:
-{
-  "aiResponse": "string",
-  "readyToGenerate": boolean,
-  "confidence": number,
-  "extractedData": {
-    "coreDesire": "string",
-    "timeframe": "string", 
-    "constraints": ["string"],
-    "emotionalCharge": "string",
-    "limitingBeliefs": ["string"]
-  }
-}
-
-Guidelines:
-- Ask precise, directive questions that collapse probability toward manifestation
-- Extract data systematically: desire → state → resources → action → timeline
-- Confidence should reflect how complete your understanding is (0.0 to 1.0)
-- Set readyToGenerate: true when confidence > 0.8 OR after 8 exchanges
-- Be mystical yet methodical in your questioning approach`
-      },
-      ...conversationHistory.map(msg => ({
-        role: msg.role as "user" | "assistant",
-        content: msg.content
-      })),
-      {
-        role: "user",
-        content: userMessage
+    // Extract current extracted data from conversation history
+    let currentExtractedData = {};
+    if (conversationHistory.length > 0) {
+      const lastMessage = conversationHistory[conversationHistory.length - 1];
+      if (lastMessage.extractedData) {
+        currentExtractedData = lastMessage.extractedData;
       }
-    ];
+    }
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages,
-      temperature: 0.6,
-      response_format: { type: "json_object" },
+    // Use CausalInference to auto-complete data
+    const implicitData = causalInference.extractImplicitData(conversationHistory);
+    const predictedData = causalInference.predictMissingVariables(currentExtractedData, implicitData);
+    const completeExtractedData = causalInference.buildCompleteSchema(predictedData);
+
+    // Create manifestation context
+    const context: ManifestationContext = {
+      conversationHistory,
+      extractedData: completeExtractedData,
+      currentState: 'discovered',
+      progressVelocity: 0,
+      saturationThreshold: 0.8
+    };
+
+    // Use ManifestationEngine to process the input
+    const result = await manifestationEngine.perceive(userMessage, context);
+
+    // Save conversation state to memory (if possible)
+    try {
+      const manifestationId = `manifestation-${Date.now()}`;
+      await stateMemory.saveConversationHistory(manifestationId, conversationHistory);
+    } catch (error) {
+      console.error('Error saving conversation history:', error);
+      // Continue without saving if localStorage fails
+    }
+
+    // Return agentic response format
+    return NextResponse.json({
+      aiResponse: result.aiResponse,
+      manifestationState: result.manifestationState,
+      nextActions: result.nextActions,
+      causalMap: result.causalMap,
+      progressVelocity: result.progressVelocity,
+      readyForDashboard: result.readyForDashboard,
+      extractedData: result.extractedData,
+      saturationLevel: result.saturationLevel
     });
 
-    const message = completion.choices?.[0]?.message?.content;
-    if (!message) throw new Error("No response from model");
-
-    const parsed = JSON.parse(message);
-    return NextResponse.json(parsed);
   } catch (err: any) {
     console.error("Error in conversation:", err);
     return NextResponse.json({
       aiResponse: "I am attuning to your manifestation frequency. Please share your core intention.",
-      readyToGenerate: false,
-      confidence: 0.1,
-      extractedData: {}
+      manifestationState: 'discovered',
+      nextActions: [],
+      causalMap: [],
+      progressVelocity: 0,
+      readyForDashboard: false,
+      extractedData: {},
+      saturationLevel: 0
     });
   }
 }

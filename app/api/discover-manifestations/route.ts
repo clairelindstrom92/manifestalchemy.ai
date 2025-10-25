@@ -1,89 +1,138 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import { CausalInference } from "../../../lib/causalInference";
 
-function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("OpenAI API key is not configured");
-  return new OpenAI({ apiKey });
-}
+// Initialize agentic AI components
+const causalInference = new CausalInference();
 
 export async function POST(request: NextRequest) {
   try {
     const { conversationHistory, extractedData, existingManifestations = [] } = await request.json();
 
-    const openai = getOpenAIClient();
+    // Use CausalInference to enhance extracted data
+    const implicitData = causalInference.extractImplicitData(conversationHistory);
+    const enhancedData = causalInference.predictMissingVariables(extractedData, implicitData);
+    const completeData = causalInference.buildCompleteSchema(enhancedData);
 
-    // Build conversation context for manifestation extraction
-    const conversationText = conversationHistory?.map((msg: any) => 
-      `${msg.role}: ${msg.content}`
-    ).join('\n') || '';
+    // Generate simple manifestations based on extracted data
+    const discoveredManifestations = generateSimpleManifestations(completeData);
 
-    const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-      {
-        role: "system",
-        content: `You are Manifest Alchemy AI — analyzing conversations to discover manifestations with scientific precision and mystical insight.
-
-When analyzing conversations, look for:
-1. Core intentions and desires
-2. Environmental preferences and conditions  
-3. Emotional states and frequencies
-4. Symbolic elements and anchors
-5. Energy patterns and vibrations
-
-For each manifestation discovered, provide:
-- A clear, mystical name
-- A precise description of what it represents
-- The category it belongs to
-- Your confidence level (0.0 to 1.0)
-- The current status of manifestation
-
-Return ONLY valid JSON in this format:
-{
-  "discoveredManifestations": [
-    {
-      "name": "string",
-      "description": "string", 
-      "category": "string",
-      "confidence": number,
-      "status": "discovered" | "active" | "materializing" | "manifested",
-      "details": "string"
-    }
-  ],
-  "reasoning": "string"
-}
-
-Guidelines:
-1. Only extract manifestations that are clearly expressed or implied
-2. Confidence should reflect how certain you are about the manifestation
-3. Status should reflect the current state of manifestation
-4. Categories should be: "primary", "environment", "frequency", "symbols", "energy", or "other"
-5. Be mystical yet precise in your analysis
-6. Don't duplicate existing manifestations unless they've evolved
-7. Use the extractedData to enhance your understanding`,
-      },
-      {
-        role: "user",
-        content: `Analyze this conversation for manifestations:\n\n${conversationText}\n\nExtracted Data: ${JSON.stringify(extractedData, null, 2)}\n\nExisting manifestations: ${JSON.stringify(existingManifestations, null, 2)}`,
-      },
-    ];
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages,
-      temperature: 0.6,
-      response_format: { type: "json_object" },
+    return NextResponse.json({
+      discoveredManifestations,
+      reasoning: `Based on your input about ${completeData.coreDesire}, I've identified key manifestation pathways.`,
+      agentAnalysis: []
     });
 
-    const message = completion.choices?.[0]?.message?.content;
-    if (!message) throw new Error("No response from model");
-
-    const parsed = JSON.parse(message);
-    return NextResponse.json(parsed);
   } catch (err: any) {
     console.error("Error discovering manifestations:", err);
     return NextResponse.json({
       discoveredManifestations: [],
       reasoning: "Manifestation discovery temporarily unavailable",
+      agentAnalysis: []
     });
   }
+}
+
+function generateSimpleManifestations(extractedData: any) {
+  const coreDesire = extractedData.coreDesire || 'personal fulfillment';
+  const category = determineCategory(coreDesire);
+  
+  return [
+    {
+      id: `manifestation-${Date.now()}`,
+      name: generateManifestationName(coreDesire),
+      description: `A mystical pathway that transmutes intention into manifested reality through ${coreDesire.toLowerCase()}`,
+      category,
+      confidence: causalInference.calculateConfidence(extractedData),
+      status: 'discovered',
+      source: 'ai-conversation',
+      details: `This manifestation pathway includes 3 causal nodes designed to create optimal reality alignment for ${coreDesire}.`,
+      agentType: getAgentType(coreDesire),
+      causalMap: [
+        {
+          id: 'node-1',
+          action: `Clarify ${coreDesire} vision`,
+          category: 'cognitive',
+          probability: 0.9,
+          dependencies: []
+        },
+        {
+          id: 'node-2',
+          action: `Identify resources for ${coreDesire}`,
+          category: 'environmental',
+          probability: 0.8,
+          dependencies: ['node-1']
+        },
+        {
+          id: 'node-3',
+          action: `Take first action toward ${coreDesire}`,
+          category: 'behavioral',
+          probability: 0.7,
+          dependencies: ['node-1', 'node-2']
+        }
+      ],
+      microActions: [
+        {
+          id: 'action-1',
+          description: `Visualize yourself having achieved ${coreDesire}`,
+          category: 'cognitive',
+          timeframe: '5 min',
+          dependencies: [],
+          probability: 0.9,
+          resistance: 0.1
+        },
+        {
+          id: 'action-2',
+          description: `Identify one small step you can take today toward ${coreDesire}`,
+          category: 'behavioral',
+          timeframe: '15 min',
+          dependencies: ['action-1'],
+          probability: 0.8,
+          resistance: 0.2
+        }
+      ],
+      synchronicityTriggers: [
+        `Observe for ${coreDesire} related opportunities`,
+        `Notice synchronicities related to ${coreDesire}`
+      ]
+    }
+  ];
+}
+
+function generateManifestationName(coreDesire: string): string {
+  const desire = coreDesire.toLowerCase();
+  
+  if (desire.includes('financial') || desire.includes('money') || desire.includes('wealth')) {
+    return 'The Alchemy of Abundance';
+  } else if (desire.includes('health') || desire.includes('fitness') || desire.includes('wellness')) {
+    return 'The Vitality Transmutation';
+  } else if (desire.includes('career') || desire.includes('job') || desire.includes('work')) {
+    return 'The Success Catalyst';
+  } else if (desire.includes('love') || desire.includes('relationship') || desire.includes('partner')) {
+    return 'The Connection Resonance';
+  } else if (desire.includes('home') || desire.includes('environment') || desire.includes('space')) {
+    return 'The Space Harmonization';
+  }
+  
+  return `The ${coreDesire} Manifestation`;
+}
+
+function determineCategory(coreDesire: string): string {
+  const desire = coreDesire.toLowerCase();
+  
+  if (desire.includes('financial') || desire.includes('money')) return 'primary';
+  if (desire.includes('environment') || desire.includes('home')) return 'environment';
+  if (desire.includes('health') || desire.includes('fitness')) return 'energy';
+  if (desire.includes('career') || desire.includes('work')) return 'frequency';
+  return 'primary';
+}
+
+function getAgentType(coreDesire: string): string {
+  const desire = coreDesire.toLowerCase();
+  
+  if (desire.includes('financial') || desire.includes('money')) return 'finance';
+  if (desire.includes('health') || desire.includes('fitness')) return 'health';
+  if (desire.includes('career') || desire.includes('work')) return 'career';
+  if (desire.includes('love') || desire.includes('relationship')) return 'relationship';
+  if (desire.includes('home') || desire.includes('environment')) return 'environment';
+  return 'general';
 }

@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, RotateCcw, Home, MessageCircle, Target, Calendar, TrendingUp, Zap, Heart, Eye } from 'lucide-react';
+import { Sparkles, RotateCcw, Home, Target, Zap, Heart, Eye } from 'lucide-react';
 import { ManifestationProject, DiscoveredManifestation } from '../types';
 import MagicalBackground from './shared/MagicalBackground';
 import MagicalButton from './shared/MagicalButton';
@@ -23,13 +23,18 @@ interface ManifestationIcon {
   dynamic: string;
   status: DiscoveredManifestation['status'];
   confidence: number;
+  agentType?: string;
+  causalMap?: DiscoveredManifestation['causalMap'];
+  microActions?: DiscoveredManifestation['microActions'];
+  synchronicityTriggers?: DiscoveredManifestation['synchronicityTriggers'];
 }
 
-export default function ManifestationDashboard({ project, onRestart, onManifestationClick }: ManifestationDashboardProps) {
+function ManifestationDashboard({ project, onRestart, onManifestationClick }: ManifestationDashboardProps) {
   const [selectedManifestation, setSelectedManifestation] = useState<string | null>(null);
 
   // Memoized helper functions for dynamic manifestation tiles
-  const getIconForCategory = useMemo(() => (category: string): React.ReactNode => {
+  const getIconForCategory = useMemo(() => {
+    const iconFunction = (category: string): React.ReactNode => {
     switch (category.toLowerCase()) {
       case 'primary':
       case 'core':
@@ -49,6 +54,8 @@ export default function ManifestationDashboard({ project, onRestart, onManifesta
       default:
         return <Sparkles className="w-8 h-8" />;
     }
+    };
+    return iconFunction;
   }, []);
 
   const getColorForStatus = useMemo(() => (status: DiscoveredManifestation['status']): string => {
@@ -91,7 +98,11 @@ export default function ManifestationDashboard({ project, onRestart, onManifesta
       description: manifestation.description,
       dynamic: `${manifestation.category} — ${getStatusText(manifestation.status)}`,
       status: manifestation.status,
-      confidence: manifestation.confidence
+      confidence: manifestation.confidence,
+      agentType: manifestation.agentType,
+      causalMap: manifestation.causalMap,
+      microActions: manifestation.microActions,
+      synchronicityTriggers: manifestation.synchronicityTriggers
     })) || [],
     [project.discoveredManifestations, getIconForCategory, getColorForStatus, getStatusText]
   );
@@ -328,6 +339,48 @@ export default function ManifestationDashboard({ project, onRestart, onManifesta
                 {manifestation.dynamic}
               </p>
               
+              {/* Agent Type Badge */}
+              {manifestation.agentType && (
+                <div className="mt-2">
+                  <span className="inline-block px-2 py-1 bg-yellow-400/20 text-yellow-300 text-xs rounded-full border border-yellow-300/30">
+                    {manifestation.agentType} Agent
+                  </span>
+                </div>
+              )}
+              
+              {/* Micro Actions Preview */}
+              {manifestation.microActions && manifestation.microActions.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-white/70 text-xs font-medium mb-1">Next Actions:</p>
+                  <div className="space-y-1">
+                    {manifestation.microActions.slice(0, 2).map((action, index) => (
+                      <div key={index} className="flex items-start gap-2">
+                        <div className="w-1 h-1 bg-yellow-300 rounded-full mt-1.5 flex-shrink-0" />
+                        <span className="text-white/60 text-xs leading-tight">{action.description}</span>
+                      </div>
+                    ))}
+                    {manifestation.microActions.length > 2 && (
+                      <span className="text-white/50 text-xs">+{manifestation.microActions.length - 2} more</span>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Synchronicity Triggers */}
+              {manifestation.synchronicityTriggers && manifestation.synchronicityTriggers.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-white/70 text-xs font-medium mb-1">Synchronicities:</p>
+                  <div className="space-y-1">
+                    {manifestation.synchronicityTriggers.slice(0, 1).map((trigger, index) => (
+                      <div key={index} className="flex items-start gap-2">
+                        <div className="w-1 h-1 bg-amber-300 rounded-full mt-1.5 flex-shrink-0" />
+                        <span className="text-white/60 text-xs leading-tight">{trigger}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
               {/* Shimmer effect */}
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/3 to-transparent transform -skew-x-12 animate-shimmer rounded-3xl pointer-events-none overflow-hidden" style={{ animationDuration: '4s' }}></div>
               
@@ -356,3 +409,5 @@ export default function ManifestationDashboard({ project, onRestart, onManifesta
     </div>
   );
 }
+
+export default ManifestationDashboard;
