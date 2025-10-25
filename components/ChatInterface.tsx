@@ -14,7 +14,11 @@ interface Message {
   timestamp: Date;
 }
 
-export default function ChatInterface() {
+interface ChatInterfaceProps {
+  onBack?: () => void;
+}
+
+export default function ChatInterface({ onBack }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -98,9 +102,20 @@ export default function ChatInterface() {
       <div className="relative z-10 flex flex-col h-screen">
         {/* Header */}
         <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 p-4">
-          <h1 className="text-2xl font-bold text-white text-center">
-            Manifest Alchemy AI
-          </h1>
+          <div className="flex items-center justify-between">
+            {onBack && (
+              <button
+                onClick={onBack}
+                className="text-white/70 hover:text-white transition-colors"
+              >
+                ← Back
+              </button>
+            )}
+            <h1 className="text-2xl font-bold text-white text-center flex-1">
+              Manifest Alchemy AI
+            </h1>
+            {onBack && <div className="w-16"></div>}
+          </div>
         </div>
 
         {/* Messages */}

@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { BUTTON_GRADIENTS, MAGICAL_STYLES, SPARKLE_POSITIONS, ANIMATION_DURATIONS } from '../../lib/constants';
 
 interface MagicalButtonProps {
   onClick: () => void;
@@ -33,8 +32,9 @@ export default function MagicalButton({
 
   const baseClasses = `
     relative rounded-full transition-all duration-500 backdrop-blur-sm overflow-hidden
-    ${BUTTON_GRADIENTS.primary} hover:${BUTTON_GRADIENTS.hover}
-    ${BUTTON_GRADIENTS.border} ${BUTTON_GRADIENTS.borderHover}
+    bg-gradient-to-r from-yellow-400/10 via-amber-300/15 to-yellow-400/10 
+    hover:from-yellow-400/20 hover:via-amber-300/25 hover:to-yellow-400/20
+    border border-yellow-300/20 hover:border-yellow-300/40
     ${sizeClasses[size]}
     ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
     ${className}
@@ -46,9 +46,9 @@ export default function MagicalButton({
       disabled={disabled}
       className={baseClasses}
       style={{
-        fontFamily: MAGICAL_STYLES.fontFamily,
-        letterSpacing: MAGICAL_STYLES.letterSpacingWide,
-        textShadow: MAGICAL_STYLES.textShadowSubtle,
+        fontFamily: "'Quicksand', 'Poppins', sans-serif",
+        letterSpacing: '0.15em',
+        textShadow: '0 0 10px rgba(255, 215, 0, 0.5), 0 0 20px rgba(255, 215, 0, 0.3)',
         textTransform: 'uppercase'
       }}
       whileHover={{ scale: disabled ? 1 : 1.05 }}
@@ -57,16 +57,10 @@ export default function MagicalButton({
     >
       {/* Sparkle particles */}
       <div className="absolute inset-0 pointer-events-none">
-        {SPARKLE_POSITIONS.map((pos, index) => (
-          <div
-            key={index}
-            className={`absolute ${pos.top} ${pos.left || pos.right} w-1 h-1 bg-yellow-300 rounded-full animate-ping opacity-60`}
-            style={{ 
-              animationDelay: pos.delay, 
-              animationDuration: pos.duration 
-            }}
-          />
-        ))}
+        <div className="absolute top-2 left-4 w-1 h-1 bg-yellow-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s', animationDuration: '2s' }}></div>
+        <div className="absolute top-3 right-6 w-1 h-1 bg-amber-200 rounded-full animate-ping opacity-70" style={{ animationDelay: '0.5s', animationDuration: '2.5s' }}></div>
+        <div className="absolute bottom-2 left-8 w-1 h-1 bg-yellow-400 rounded-full animate-ping opacity-50" style={{ animationDelay: '1s', animationDuration: '3s' }}></div>
+        <div className="absolute bottom-3 right-4 w-1 h-1 bg-amber-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '1.5s', animationDuration: '2.2s' }}></div>
       </div>
       
       {loading ? 'Processing...' : children}
@@ -74,7 +68,7 @@ export default function MagicalButton({
       {/* Shimmer effect */}
       <div 
         className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent transform -skew-x-12 animate-shimmer rounded-full pointer-events-none overflow-hidden" 
-        style={{ animationDuration: ANIMATION_DURATIONS.shimmerFast }}
+        style={{ animationDuration: '2s' }}
       />
     </motion.button>
   );

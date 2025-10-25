@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { MAGICAL_STYLES, ANIMATION_DURATIONS } from '../../lib/constants';
 
 interface MagicalInputProps {
   value: string;
@@ -15,21 +14,26 @@ interface MagicalInputProps {
   isListening?: boolean;
   rows?: number;
   className?: string;
+  onKeyPress?: (e: React.KeyboardEvent) => void;
 }
 
 export default function MagicalInput({
   value,
   onChange,
   onSubmit,
-  placeholder = "Speak your manifestation into existence or type...",
+  placeholder = "Type your message...",
   disabled = false,
-  withVoice = true,
+  withVoice = false,
   onVoiceClick,
   isListening = false,
-  rows = 4,
-  className = ''
+  rows = 1,
+  className = '',
+  onKeyPress
 }: MagicalInputProps) {
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (onKeyPress) {
+      onKeyPress(e);
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       onSubmit();
@@ -37,20 +41,20 @@ export default function MagicalInput({
   };
 
   return (
-    <div className={`relative max-w-xl mx-auto ${className}`}>
-      <textarea
+    <div className={`relative flex-1 ${className}`}>
+      <input
+        type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        className="w-full px-6 py-4 bg-gradient-to-r from-yellow-400/10 via-amber-300/15 to-yellow-400/10 border border-yellow-300/20 rounded-xl text-white placeholder-white/50 resize-none focus:outline-none focus:border-yellow-300/40 transition-all duration-300 backdrop-blur-sm"
+        className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:border-white/40 transition-all duration-300 backdrop-blur-sm"
         style={{
-          textShadow: MAGICAL_STYLES.textShadowSubtle,
-          fontFamily: MAGICAL_STYLES.fontFamily,
-          letterSpacing: MAGICAL_STYLES.letterSpacing,
-          boxShadow: '0 0 20px rgba(255, 215, 0, 0.1)'
+          textShadow: '0 0 10px rgba(255, 255, 255, 0.3)',
+          fontFamily: "'Quicksand', 'Poppins', sans-serif",
+          letterSpacing: '0.05em',
+          boxShadow: '0 0 20px rgba(255, 255, 255, 0.1)'
         }}
-        rows={rows}
         disabled={disabled}
       />
       
@@ -59,9 +63,9 @@ export default function MagicalInput({
         <motion.button
           type="button"
           onClick={onVoiceClick}
-          className="absolute top-3 right-3 w-10 h-10 bg-gradient-to-r from-yellow-400/20 via-amber-300/25 to-yellow-400/20 hover:from-yellow-400/30 hover:via-amber-300/35 hover:to-yellow-400/30 border border-yellow-300/30 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-sm"
+          className="absolute top-2 right-2 w-8 h-8 bg-white/10 hover:bg-white/20 border border-white/20 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-sm"
           style={{
-            boxShadow: '0 0 15px rgba(255, 215, 0, 0.3)'
+            boxShadow: '0 0 15px rgba(255, 255, 255, 0.2)'
           }}
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.9 }}
@@ -70,9 +74,9 @@ export default function MagicalInput({
           disabled={disabled}
         >
           {isListening ? (
-            <div className="w-3 h-3 bg-red-400 rounded-full animate-pulse"></div>
+            <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
           ) : (
-            <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
+            <div className="w-2 h-2 bg-white rounded-full"></div>
           )}
         </motion.button>
       )}
@@ -80,7 +84,7 @@ export default function MagicalInput({
       {/* Shimmer effect */}
       <div 
         className="absolute inset-0 bg-gradient-to-r from-transparent via-white/2 to-transparent transform -skew-x-12 animate-shimmer rounded-xl pointer-events-none overflow-hidden" 
-        style={{ animationDuration: ANIMATION_DURATIONS.shimmer }}
+        style={{ animationDuration: '3s' }}
       />
     </div>
   );
