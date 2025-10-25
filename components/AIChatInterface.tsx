@@ -13,58 +13,50 @@ interface ChatInterfaceProps {
 
 export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
   const [formData, setFormData] = useState({
-    name: '',
-    manifestation: '',
-    currentState: '',
-    obstacles: '',
-    timeline: ''
+    manifestation: ''
   });
   const [isGenerating, setIsGenerating] = useState(false);
-  const [currentStep, setCurrentStep] = useState(0);
+  const [isListening, setIsListening] = useState(false);
+  const [recognition, setRecognition] = useState<any>(null);
 
-  const steps = [
-    {
-      field: 'name',
-      question: "What should I call you?",
-      placeholder: "Your name..."
-    },
-    {
-      field: 'manifestation',
-      question: "What are you here to manifest into reality?",
-      placeholder: "Describe what you want to create..."
-    },
-    {
-      field: 'currentState',
-      question: "Where are you now in relation to this manifestation?",
-      placeholder: "Describe your current situation..."
-    },
-    {
-      field: 'obstacles',
-      question: "What patterns or obstacles are blocking this from manifesting?",
-      placeholder: "What's holding you back..."
-    },
-    {
-      field: 'timeline',
-      question: "What timeframe feels aligned for this manifestation?",
-      placeholder: "e.g., 3 months, 6 months, 1 year..."
+  // Initialize speech recognition
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition;
+      const recognitionInstance = new SpeechRecognition();
+      recognitionInstance.continuous = false;
+      recognitionInstance.interimResults = false;
+      recognitionInstance.lang = 'en-US';
+
+      recognitionInstance.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        setFormData(prev => ({ ...prev, manifestation: prev.manifestation + ' ' + transcript }));
+        setIsListening(false);
+      };
+
+      recognitionInstance.onerror = () => {
+        setIsListening(false);
+      };
+
+      recognitionInstance.onend = () => {
+        setIsListening(false);
+      };
+
+      setRecognition(recognitionInstance);
     }
-  ];
+  }, []);
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleNext = () => {
-    if (currentStep < steps.length - 1) {
-      setCurrentStep(currentStep + 1);
-    } else {
-      generateManifestationPlan();
+  const startListening = () => {
+    if (recognition) {
+      setIsListening(true);
+      recognition.start();
     }
   };
 
-  const handleBack = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
+  const stopListening = () => {
+    if (recognition) {
+      recognition.stop();
+      setIsListening(false);
     }
   };
 
@@ -91,9 +83,9 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
       const project: ManifestationProject = {
         id: Date.now().toString(),
         userData: {
-          userName: formData.name,
+          userName: 'Manifestor',
           manifestation_category: 'general',
-          environment_description: formData.currentState,
+          environment_description: 'Current reality',
           core_emotion: 'determined',
           symbolic_elements: formData.manifestation,
           manifestation_title: formData.manifestation
@@ -103,7 +95,7 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
           title: `Step ${index + 1}`,
           description: step,
           actionable: true,
-          timeframe: formData.timeline || 'flexible'
+          timeframe: 'flexible'
         })),
         createdAt: new Date(),
         completedSteps: []
@@ -116,9 +108,9 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
       const project: ManifestationProject = {
         id: Date.now().toString(),
         userData: {
-          userName: formData.name,
+          userName: 'Manifestor',
           manifestation_category: 'general',
-          environment_description: formData.currentState,
+          environment_description: 'Current reality',
           core_emotion: 'determined',
           symbolic_elements: formData.manifestation,
           manifestation_title: formData.manifestation
@@ -136,7 +128,7 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
           title: `Step ${index + 1}`,
           description: step,
           actionable: true,
-          timeframe: formData.timeline || 'flexible'
+          timeframe: 'flexible'
         })),
         createdAt: new Date(),
         completedSteps: []
@@ -144,8 +136,6 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
       onComplete(project);
     }
   };
-
-  const currentStepData = steps[currentStep];
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6 relative overflow-hidden"
@@ -167,72 +157,21 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
       {/* Animated stars overlay */}
       <AnimatedStarBackground />
 
-      <div className="max-w-2xl mx-auto text-center relative z-10">
+      <div className="max-w-3xl mx-auto text-center relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10"
+          className="bg-white/5 backdrop-blur-sm rounded-2xl p-12 border border-white/10"
         >
-          {/* Magical Progress indicator */}
-          <div className="mb-8">
-            <div className="flex justify-center space-x-2 mb-4 relative">
-              {steps.map((_, index) => (
-                <div key={index} className="relative">
-                  <div
-                    className={`w-3 h-3 rounded-full transition-all duration-500 ${
-                      index <= currentStep 
-                        ? 'bg-yellow-400 shadow-lg shadow-yellow-400/70' 
-                        : 'bg-white/20'
-                    }`}
-                    style={{
-                      filter: index <= currentStep ? 'drop-shadow(0 0 8px rgba(255, 215, 0, 0.8))' : 'none'
-                    }}
-                  />
-                  {/* Sparkle particles around active dots */}
-                  {index <= currentStep && (
-                    <>
-                      <div className="absolute -top-1 -right-1 w-1 h-1 bg-yellow-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s', animationDuration: '2s' }}></div>
-                      <div className="absolute -bottom-1 -left-1 w-1 h-1 bg-amber-200 rounded-full animate-ping opacity-70" style={{ animationDelay: '0.5s', animationDuration: '2.5s' }}></div>
-                      <div className="absolute top-1 -left-2 w-1 h-1 bg-yellow-400 rounded-full animate-ping opacity-50" style={{ animationDelay: '1s', animationDuration: '3s' }}></div>
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-            <motion.p 
-              className="text-white/80 text-sm font-light"
-              style={{
-                textShadow: '0 0 10px rgba(255, 215, 0, 0.4)',
-                letterSpacing: '0.1em'
-              }}
-              animate={{ 
-                opacity: [0.8, 1, 0.8],
-                textShadow: [
-                  '0 0 10px rgba(255, 215, 0, 0.4)',
-                  '0 0 15px rgba(255, 215, 0, 0.6)',
-                  '0 0 10px rgba(255, 215, 0, 0.4)'
-                ]
-              }}
-              transition={{ 
-                duration: 3,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-            >
-              Step {currentStep + 1} of {steps.length}
-            </motion.p>
-          </div>
-
           {/* Magical Question */}
           <motion.h2 
-            className="text-2xl md:text-3xl text-white mb-8 font-light relative"
+            className="text-3xl md:text-4xl text-white mb-12 font-light relative"
             style={{ 
               textShadow: '0 0 20px rgba(255, 215, 0, 0.6), 0 0 40px rgba(255, 165, 0, 0.4)',
               letterSpacing: '0.05em',
               fontFamily: "'Quicksand', 'Poppins', sans-serif"
             }}
-            key={currentStep}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
@@ -254,81 +193,82 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
                 zIndex: -1
               }}
             />
-            <span className="relative z-10">{currentStepData.question}</span>
+            <span className="relative z-10">What are you here to manifest?</span>
           </motion.h2>
 
-          {/* Magical Input */}
+          {/* Magical Input with Voice */}
           <motion.div
-            key={`input-${currentStep}`}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="mb-8 relative"
+            className="mb-12 relative"
           >
             {/* Sparkle particles around input */}
             <div className="absolute inset-0 pointer-events-none">
-              <div className="absolute -top-2 left-4 w-1 h-1 bg-yellow-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s', animationDuration: '2s' }}></div>
-              <div className="absolute -top-1 right-6 w-1 h-1 bg-amber-200 rounded-full animate-ping opacity-70" style={{ animationDelay: '0.5s', animationDuration: '2.5s' }}></div>
-              <div className="absolute -bottom-2 left-8 w-1 h-1 bg-yellow-400 rounded-full animate-ping opacity-50" style={{ animationDelay: '1s', animationDuration: '3s' }}></div>
-              <div className="absolute -bottom-1 right-4 w-1 h-1 bg-amber-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '1.5s', animationDuration: '2.2s' }}></div>
+              <div className="absolute -top-3 left-6 w-1 h-1 bg-yellow-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s', animationDuration: '2s' }}></div>
+              <div className="absolute -top-2 right-8 w-1 h-1 bg-amber-200 rounded-full animate-ping opacity-70" style={{ animationDelay: '0.5s', animationDuration: '2.5s' }}></div>
+              <div className="absolute -bottom-3 left-10 w-1 h-1 bg-yellow-400 rounded-full animate-ping opacity-50" style={{ animationDelay: '1s', animationDuration: '3s' }}></div>
+              <div className="absolute -bottom-2 right-6 w-1 h-1 bg-amber-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '1.5s', animationDuration: '2.2s' }}></div>
+              <div className="absolute top-1/2 -left-2 w-1 h-1 bg-yellow-200 rounded-full animate-ping opacity-40" style={{ animationDelay: '2s', animationDuration: '2.8s' }}></div>
+              <div className="absolute top-1/2 -right-2 w-1 h-1 bg-amber-400 rounded-full animate-ping opacity-55" style={{ animationDelay: '2.5s', animationDuration: '2.3s' }}></div>
             </div>
             
-            <textarea
-              value={formData[currentStepData.field as keyof typeof formData]}
-              onChange={(e) => handleInputChange(currentStepData.field, e.target.value)}
-              placeholder={currentStepData.placeholder}
-              className="w-full max-w-md mx-auto bg-gradient-to-r from-white/10 via-white/15 to-white/10 border border-yellow-300/30 rounded-xl px-6 py-4 text-white placeholder-white/60 resize-none focus:outline-none focus:border-yellow-400/60 focus:from-white/15 focus:via-white/20 focus:to-white/15 transition-all duration-500 backdrop-blur-sm relative z-10"
-              rows={4}
-              style={{
-                fontFamily: "'Quicksand', 'Poppins', sans-serif",
-                letterSpacing: '0.05em',
-                textShadow: '0 0 5px rgba(255, 255, 255, 0.3)',
-                boxShadow: '0 0 20px rgba(255, 215, 0, 0.2), inset 0 0 20px rgba(255, 215, 0, 0.1)'
-              }}
-            />
-            
-            {/* Shimmer effect */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transform -skew-x-12 animate-shimmer rounded-xl pointer-events-none"></div>
+            <div className="relative">
+              <textarea
+                value={formData.manifestation}
+                onChange={(e) => setFormData(prev => ({ ...prev, manifestation: e.target.value }))}
+                placeholder="Speak your manifestation into existence... or type it here..."
+                className="w-full max-w-2xl mx-auto bg-gradient-to-r from-white/10 via-white/15 to-white/10 border border-yellow-300/30 rounded-xl px-8 py-6 text-white placeholder-white/60 resize-none focus:outline-none focus:border-yellow-400/60 focus:from-white/15 focus:via-white/20 focus:to-white/15 transition-all duration-500 backdrop-blur-sm relative z-10"
+                rows={6}
+                style={{
+                  fontFamily: "'Quicksand', 'Poppins', sans-serif",
+                  letterSpacing: '0.05em',
+                  textShadow: '0 0 5px rgba(255, 255, 255, 0.3)',
+                  boxShadow: '0 0 20px rgba(255, 215, 0, 0.2), inset 0 0 20px rgba(255, 215, 0, 0.1)'
+                }}
+              />
+              
+              {/* Voice Button */}
+              <motion.button
+                onClick={isListening ? stopListening : startListening}
+                className="absolute top-4 right-4 w-12 h-12 bg-gradient-to-r from-yellow-400/20 via-amber-300/25 to-yellow-400/20 hover:from-yellow-400/30 hover:via-amber-300/35 hover:to-yellow-400/30 border border-yellow-300/30 rounded-full flex items-center justify-center transition-all duration-300 backdrop-blur-sm"
+                style={{
+                  boxShadow: '0 0 15px rgba(255, 215, 0, 0.3)'
+                }}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                animate={isListening ? { scale: [1, 1.1, 1] } : {}}
+                transition={isListening ? { duration: 1, repeat: Infinity } : {}}
+              >
+                {isListening ? (
+                  <div className="w-4 h-4 bg-red-400 rounded-full animate-pulse"></div>
+                ) : (
+                  <div className="w-4 h-4 bg-yellow-400 rounded-full"></div>
+                )}
+              </motion.button>
+              
+              {/* Shimmer effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent transform -skew-x-12 animate-shimmer rounded-xl pointer-events-none"></div>
+            </div>
           </motion.div>
 
-          {/* Magical Navigation */}
+          {/* Magical Generate Button */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.4 }}
-            className="flex justify-center space-x-4"
+            className="flex justify-center"
           >
-            {currentStep > 0 && (
-              <motion.button
-                onClick={handleBack}
-                className="relative px-6 py-3 bg-transparent border border-white/30 text-white rounded-full hover:bg-white/10 transition-all duration-300 backdrop-blur-sm overflow-hidden"
-                style={{
-                  fontFamily: "'Quicksand', 'Poppins', sans-serif",
-                  letterSpacing: '0.1em',
-                  textShadow: '0 0 10px rgba(255, 255, 255, 0.5)',
-                  textTransform: 'uppercase'
-                }}
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                {/* Subtle sparkles for back button */}
-                <div className="absolute inset-0 pointer-events-none">
-                  <div className="absolute top-1 left-2 w-1 h-1 bg-white/40 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s', animationDuration: '3s' }}></div>
-                  <div className="absolute bottom-1 right-2 w-1 h-1 bg-white/30 rounded-full animate-ping opacity-50" style={{ animationDelay: '1.5s', animationDuration: '2.5s' }}></div>
-                </div>
-                <span className="relative z-10">Back</span>
-              </motion.button>
-            )}
-            
             <motion.button
-              onClick={handleNext}
-              disabled={!formData[currentStepData.field as keyof typeof formData].trim() || isGenerating}
-              className="relative px-8 py-3 bg-gradient-to-r from-yellow-400/20 via-amber-300/25 to-yellow-400/20 hover:from-yellow-400/30 hover:via-amber-300/35 hover:to-yellow-400/30 text-white rounded-full transition-all duration-500 backdrop-blur-sm border border-yellow-300/20 hover:border-yellow-300/40 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
+              onClick={generateManifestationPlan}
+              disabled={!formData.manifestation.trim() || isGenerating}
+              className="relative px-12 py-4 bg-gradient-to-r from-yellow-400/20 via-amber-300/25 to-yellow-400/20 hover:from-yellow-400/30 hover:via-amber-300/35 hover:to-yellow-400/30 text-white rounded-full transition-all duration-500 backdrop-blur-sm border border-yellow-300/20 hover:border-yellow-300/40 disabled:opacity-50 disabled:cursor-not-allowed overflow-hidden"
               style={{
                 fontFamily: "'Quicksand', 'Poppins', sans-serif",
                 letterSpacing: '0.1em',
                 textShadow: '0 0 10px rgba(255, 215, 0, 0.5), 0 0 20px rgba(255, 165, 0, 0.3)',
-                textTransform: 'uppercase'
+                textTransform: 'uppercase',
+                fontSize: '1.1rem'
               }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -347,7 +287,7 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-shimmer"></div>
               
               <span className="relative z-10">
-                {isGenerating ? 'Generating...' : currentStep === steps.length - 1 ? 'Generate Plan' : 'Next'}
+                {isGenerating ? 'Generating Your Manifestation Plan...' : 'Manifest This Reality'}
               </span>
             </motion.button>
           </motion.div>
