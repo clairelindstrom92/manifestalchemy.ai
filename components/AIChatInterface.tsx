@@ -264,6 +264,16 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
               WHAT ARE YOU HERE TO MANIFEST?
             </motion.h2>
 
+            {/* Pulsing background glow */}
+            <motion.div
+              className="absolute inset-0 bg-gradient-to-r from-yellow-400/10 via-amber-300/15 to-yellow-400/10 rounded-3xl blur-xl"
+              animate={{ 
+                scale: [1, 1.05, 1],
+                opacity: [0.3, 0.5, 0.3]
+              }}
+              transition={{ duration: 4, repeat: Infinity }}
+            />
+
             {/* AI Thinking Animation */}
             {aiThinking && (
               <motion.div
@@ -331,7 +341,7 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
                   <textarea
                     value={currentInput}
                     onChange={(e) => setCurrentInput(e.target.value)}
-                    placeholder="Share your manifestation intention..."
+                    placeholder="Speak your manifestation into existence or type..."
                     className="w-full px-6 py-4 bg-gradient-to-r from-yellow-400/10 via-amber-300/15 to-yellow-400/10 border border-yellow-300/20 rounded-xl text-white placeholder-white/50 resize-none focus:outline-none focus:border-yellow-300/40 transition-all duration-300 backdrop-blur-sm"
                     style={{
                       textShadow: '0 0 10px rgba(255, 215, 0, 0.3)',
@@ -341,6 +351,12 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
                     }}
                     rows={4}
                     disabled={aiThinking}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage(currentInput);
+                      }
+                    }}
                   />
                   
                   {/* Voice Button */}
@@ -367,6 +383,24 @@ export default function ChatInterface({ onComplete }: ChatInterfaceProps) {
                   {/* Shimmer effect */}
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/2 to-transparent transform -skew-x-12 animate-shimmer rounded-xl pointer-events-none overflow-hidden" style={{ animationDuration: '6s' }}></div>
                 </div>
+                
+                {/* Submit Button */}
+                <motion.button
+                  type="submit"
+                  disabled={!currentInput.trim() || aiThinking}
+                  className="mt-4 px-6 py-2 bg-gradient-to-r from-yellow-400/20 via-amber-300/25 to-yellow-400/20 hover:from-yellow-400/30 hover:via-amber-300/35 hover:to-yellow-400/30 text-white rounded-full transition-all duration-300 backdrop-blur-sm border border-yellow-300/20 hover:border-yellow-300/40 disabled:opacity-50 disabled:cursor-not-allowed"
+                  style={{
+                    fontFamily: "'Quicksand', 'Poppins', sans-serif",
+                    letterSpacing: '0.05em',
+                    textShadow: '0 0 10px rgba(255, 215, 0, 0.3)',
+                    textTransform: 'uppercase',
+                    fontSize: '0.8rem'
+                  }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  {aiThinking ? 'Processing...' : 'Continue'}
+                </motion.button>
               </form>
             </motion.div>
 
