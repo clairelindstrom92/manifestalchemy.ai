@@ -47,14 +47,28 @@ Assistant:`;
          }
        );
       
-      // Handle array response from direct API
-      if (Array.isArray(results) && results.length > 0) {
-        response = { generated_text: results[0].generated_text || results[0].text || '' };
-      } else if (results.generated_text) {
-        response = results;
-      } else {
-        response = { generated_text: JSON.stringify(results) };
-      }
+             // Handle different response formats
+       console.log('Raw results:', JSON.stringify(results));
+       
+       if (Array.isArray(results) && results.length > 0) {
+         // Handle array response
+         const firstResult = results[0];
+         if (firstResult.generated_text) {
+           response = { generated_text: firstResult.generated_text };
+         } else if (firstResult.text) {
+           response = { generated_text: firstResult.text };
+         } else {
+           response = { generated_text: firstResult.response || firstResult.summary || JSON.stringify(firstResult) };
+         }
+       } else if (results.generated_text) {
+         response = { generated_text: results.generated_text };
+       } else if (results.text) {
+         response = { generated_text: results.text };
+       } else {
+         // Try to extract any text from the response
+         const text = results.response || results.summary || results.output || JSON.stringify(results);
+         response = { generated_text: text };
+       }
     } catch (directError) {
       console.log('Direct API failed, trying SDK...', directError);
              // Fallback to SDK

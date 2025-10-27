@@ -34,6 +34,7 @@ export async function callHFAPI(
     throw new Error('HuggingFace API key is not configured');
   }
   
+  // Use Inference Endpoints API instead of regular inference API
   const response = await fetch(
     `https://api-inference.huggingface.co/models/${model}`,
     {
@@ -44,7 +45,7 @@ export async function callHFAPI(
       method: 'POST',
       body: JSON.stringify({
         inputs,
-        parameters,
+        ...parameters,
       }),
     }
   );
