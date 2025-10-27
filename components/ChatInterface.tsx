@@ -3,9 +3,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Send, Loader2 } from 'lucide-react';
+
+// Shared visual components
 import MagicalBackground from './shared/MagicalBackground';
 import MagicalInput from './shared/MagicalInput';
 import MagicalButton from './shared/MagicalButton';
+
+// 🪄 Markdown renderer for formatted AI responses
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
 
 interface Message {
   id: string;
@@ -139,7 +146,31 @@ export default function ChatInterface({ onBack }: ChatInterfaceProps) {
                     : 'bg-white/10 text-white backdrop-blur-sm'
                 }`}
               >
-                <p className="text-sm leading-relaxed">{message.content}</p>
+                <div className="prose prose-invert max-w-none text-sm leading-relaxed">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      strong: ({ children }) => (
+                        <motion.strong
+                          className="font-semibold animate-text-shimmer bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-500 bg-clip-text text-transparent drop-shadow-[0_0_4px_rgba(255,200,100,0.4)]"
+                          initial={{ opacity: 0.8 }}
+                          animate={{ opacity: [0.8, 1, 0.8] }}
+                          transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+                        >
+                          {children}
+                        </motion.strong>
+                      ),
+                      em: ({ children }) => (
+                        <em className="opacity-90 italic">{children}</em>
+                      ),
+                      code: ({ children }) => (
+                        <code className="bg-white/10 text-amber-300 px-1 py-0.5 rounded-md font-mono">{children}</code>
+                      )
+                    }}
+                  >
+                    {message.content}
+                  </ReactMarkdown>
+                </div>
               </div>
             </motion.div>
           ))}

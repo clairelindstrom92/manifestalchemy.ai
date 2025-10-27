@@ -12,6 +12,9 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-ballet: 'Ballet', cursive;
+  --color-gold: #fbbf24;
+  --color-gold-light: #facc15;
+  --color-gold-deep: #f59e0b;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -42,4 +45,20 @@ body {
 
 .animate-shimmer {
   animation: shimmer 3s ease-in-out infinite;
+}
+
+/* Shimmer animation for gold text */
+@keyframes text-shimmer {
+  0%, 100% { 
+    opacity: 0.7; 
+    filter: brightness(1); 
+  }
+  50% { 
+    opacity: 1; 
+    filter: brightness(1.6); 
+  }
+}
+
+.animate-text-shimmer {
+  animation: text-shimmer 2.5s ease-in-out infinite;
 }
