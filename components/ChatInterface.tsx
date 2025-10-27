@@ -60,11 +60,11 @@ export default function ChatInterface({ onBack }: ChatInterfaceProps) {
         }),
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to get response');
-      }
-
       const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || data.error || 'Failed to get response');
+      }
       
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
