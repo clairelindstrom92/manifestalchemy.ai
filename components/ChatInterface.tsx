@@ -111,12 +111,18 @@ export default function ChatInterface({ onBack }: ChatInterfaceProps) {
             {onBack && (
               <button
                 onClick={onBack}
-                className="text-white/70 hover:text-white transition-colors"
+                className="text-white/70 hover:text-white transition-colors text-2xl"
               >
-                ← Back
+                ←
               </button>
             )}
-            <h1 className="text-2xl font-bold text-white text-center flex-1">
+            <h1 
+              className="text-2xl text-white text-center flex-1 ballet-font"
+              style={{ 
+                textShadow: '0 0 20px rgba(255, 255, 255, 0.8), 0 0 40px rgba(255, 215, 0, 0.6), 0 0 60px rgba(255, 165, 0, 0.4)',
+                letterSpacing: '0.1em'
+              }}
+            >
               Manifest Alchemy AI
             </h1>
             {onBack && <div className="w-16"></div>}
