@@ -17,21 +17,27 @@ export async function POST(request: NextRequest) {
     console.log(`Received ${messages.length} messages from client`);
 
     // ⚡ Stream the AI response using the Vercel AI SDK
+    console.log("Calling streamText with messages:", JSON.stringify(messages));
+    
     const result = await streamText({
       model: openai("gpt-4o-mini"),
       messages,
     });
     
+    console.log("StreamText result received");
 
     // 🧠 Collect streamed response
     let fullText = "";
+    let chunkCount = 0;
     for await (const textPart of result.textStream) {
       fullText += textPart;
+      chunkCount++;
     }
 
     console.log("AI response complete, returning to client");
+    console.log("Chunks received:", chunkCount);
     console.log("Full text length:", fullText.length);
-    console.log("Full text preview:", fullText.substring(0, 100));
+    console.log("Full text:", fullText);
     const usage = await result.usage;
 
     // If empty, provide a default response
