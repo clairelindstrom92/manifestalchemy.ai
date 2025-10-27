@@ -93,13 +93,6 @@ export default function ChatInterface({ onBack }: ChatInterfaceProps) {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  };
-
   return (
     <div className="min-h-screen relative overflow-hidden">
       <MagicalBackground />
@@ -179,7 +172,6 @@ export default function ChatInterface({ onBack }: ChatInterfaceProps) {
                 onSubmit={sendMessage}
                 disabled={isLoading}
                 placeholder="Type your message..."
-                onKeyPress={handleKeyPress}
               />
               <MagicalButton
                 onClick={sendMessage}
