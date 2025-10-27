@@ -32,9 +32,9 @@ ${conversationHistory}
 Assistant:`;
     
     // Use HuggingFace text generation API with a publicly available model
-    // Using bigscience/bloom-560m as it's free and publicly available
+    // Try the Inference Endpoints API with a model that definitely works
     const response = await hf.textGeneration({
-      model: "bigscience/bloom-560m",
+      model: "gpt2",
       inputs: userMessage,
       parameters: {
         max_new_tokens: 250,
@@ -66,8 +66,8 @@ Assistant:`;
     
     if (errorMessage.includes('API key')) {
       errorMessage = 'HuggingFace API key is not configured. Please add HUGGINGFACE_API_KEY to your Vercel environment variables.';
-    } else if (errorMessage.includes('No Inference Provider') || errorMessage.includes('model')) {
-      errorMessage = 'The model is not available through the Inference API. Some models require special access. We are using an alternative model.';
+    } else if (errorMessage.includes('No Inference Provider') || errorMessage.includes('model is not available') || errorMessage.includes('model')) {
+      errorMessage = `Model access issue: ${errorMessage}. This may be due to HuggingFace API limitations. Please check your HuggingFace account has API access enabled.`;
     } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
       errorMessage = 'Invalid HuggingFace API key. Please verify your API key in Vercel environment variables.';
     } else if (errorMessage.includes('429') || errorMessage.includes('rate limit')) {
