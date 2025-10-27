@@ -123,7 +123,7 @@ export default function ChatInterface({ onBack }: ChatInterfaceProps) {
                 letterSpacing: '0.1em'
               }}
             >
-              Manifest Alchemy AI
+              Manifest Alchemy
             </h1>
             {onBack && <div className="w-16"></div>}
           </div>
