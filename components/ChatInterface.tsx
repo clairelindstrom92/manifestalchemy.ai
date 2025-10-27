@@ -135,7 +135,7 @@ export default function ChatInterface({ onBack }: ChatInterfaceProps) {
               <div
                 className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${
                   message.role === 'user'
-                    ? 'bg-blue-500 text-white'
+                    ? 'bg-amber-500 text-white'
                     : 'bg-white/10 text-white backdrop-blur-sm'
                 }`}
               >
