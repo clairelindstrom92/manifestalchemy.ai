@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getHFClient } from "../../../lib/openai";
+import { getHFClient, callHFAPI } from "../../../lib/openai";
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,22 +31,48 @@ export async function POST(request: NextRequest) {
 ${conversationHistory}
 Assistant:`;
     
-    // Use HuggingFace text generation API with a publicly available model
-    // Try the Inference Endpoints API with a model that definitely works
-    const response = await hf.textGeneration({
-      model: "gpt2",
-      inputs: userMessage,
-      parameters: {
-        max_new_tokens: 250,
-        return_full_text: false,
-        temperature: 0.7,
-        top_p: 0.9
+    // Use HuggingFace API directly with GPT-2 model
+    // Try using the direct API call first, then fallback to SDK
+    let response;
+    try {
+      console.log('Trying direct API call...');
+      const results = await callHFAPI(
+        "gpt2",
+        userMessage,
+        {
+          max_new_tokens: 250,
+          return_full_text: false,
+          temperature: 0.7,
+          top_p: 0.9
+        }
+      );
+      
+      // Handle array response from direct API
+      if (Array.isArray(results) && results.length > 0) {
+        response = { generated_text: results[0].generated_text || results[0].text || '' };
+      } else if (results.generated_text) {
+        response = results;
+      } else {
+        response = { generated_text: JSON.stringify(results) };
       }
-    });
+    } catch (directError) {
+      console.log('Direct API failed, trying SDK...', directError);
+      // Fallback to SDK
+      response = await hf.textGeneration({
+        model: "gpt2",
+        inputs: userMessage,
+        parameters: {
+          max_new_tokens: 250,
+          return_full_text: false,
+          temperature: 0.7,
+          top_p: 0.9
+        }
+      });
+    }
 
-    console.log('HuggingFace completion received');
+    console.log('HuggingFace completion received:', response);
 
-    const message = response.generated_text?.trim() || "I'm sorry, I couldn't generate a response.";
+    const message = response.generated_text?.trim() || response.text?.trim() || "I'm sorry, I couldn't generate a response.";
 
     return NextResponse.json({ 
       message: message,
