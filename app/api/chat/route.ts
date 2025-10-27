@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { openai } from '@ai-sdk/openai';
 import { streamText } from 'ai';
-import { createGatewayClient } from 'ai';
-
-const gateway = createGatewayClient({
-  apiKey: process.env.VERCEL_AI_GATEWAY_KEY || 'vck_6wE9cCfu8Otqlxh8h15debMS1CI38AJzE6JxujrhlaOfAvv5LF4MwzWD',
-});
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,15 +18,14 @@ export async function POST(request: NextRequest) {
     
     console.log('Sending to Vercel AI Gateway:', userMessage.substring(0, 50) + '...');
     
-    // Use Vercel AI Gateway with AI SDK
+    // Use OpenAI with AI SDK
     const result = await streamText({
-      model: 'anthropic/claude-3-5-haiku',
+      model: openai('gpt-3.5-turbo'),
       messages: messages.map(msg => ({
         role: msg.role as 'user' | 'assistant',
         content: msg.content
       })),
       maxTokens: 250,
-      gateway,
     });
 
     // Collect all text parts
