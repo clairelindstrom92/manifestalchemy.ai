@@ -16,7 +16,7 @@ A beautiful AI-powered chat application with a mystical golden aesthetic. Experi
 - **Styling**: Tailwind CSS 4
 - **Animations**: Framer Motion
 - **Icons**: Lucide React
-- **AI**: OpenAI GPT-4 API
+- **AI**: HuggingFace Inference API
 - **Deployment**: Vercel + Supabase
 
 ## Getting Started
@@ -25,7 +25,7 @@ A beautiful AI-powered chat application with a mystical golden aesthetic. Experi
 
 - Node.js 18+ 
 - npm or yarn
-- OpenAI API key
+- HuggingFace API key
 
 ### Installation
 
@@ -43,7 +43,7 @@ npm install
 3. Set up environment variables:
 Create a `.env.local` file in the root directory:
 ```bash
-OPENAI_API_KEY=your_openai_api_key_here
+HUGGINGFACE_API_KEY=your_huggingface_api_key_here
 ```
 
 4. Run the development server:
@@ -79,7 +79,7 @@ manifestalchemy.ai/
 │       ├── MagicalButton.tsx
 │       └── MagicalInput.tsx
 ├── lib/
-│   └── openai.ts                  # OpenAI client setup
+│   └── openai.ts                  # HuggingFace client setup
 ├── types/
 │   └── index.ts                   # TypeScript type definitions
 └── package.json
@@ -99,8 +99,8 @@ manifestalchemy.ai/
 - Loading states and error handling
 - Back navigation to welcome page
 
-### OpenAI Integration
-- Uses OpenAI GPT-4 for chat responses
+### HuggingFace Integration
+- Uses HuggingFace Inference API for chat responses
 - Handles API errors gracefully
 - Simple message-based conversation flow
 
@@ -113,8 +113,11 @@ manifestalchemy.ai/
 
 2. **Set Environment Variables:**
    - In Vercel dashboard, go to your project settings
-   - Add environment variable: `OPENAI_API_KEY`
-   - Set the value to your OpenAI API key
+   - Add environment variable: `HUGGINGFACE_API_KEY`
+   - Set the value to your HuggingFace API key
+   - **Important**: After adding the variable, redeploy your application for the changes to take effect
+   
+   See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed instructions.
 
 3. **Deploy:**
    - Vercel will automatically deploy on every push to main

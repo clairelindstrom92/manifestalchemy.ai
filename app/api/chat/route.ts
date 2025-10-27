@@ -19,19 +19,34 @@ export async function POST(request: NextRequest) {
     const lastMessage = messages[messages.length - 1];
     const userMessage = lastMessage.content;
     
-    // Use HuggingFace text generation API
+    console.log('Sending to HuggingFace:', userMessage.substring(0, 50) + '...');
+    
+    // Create a conversational prompt
+    const conversationHistory = messages.map(msg => 
+      `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
+    ).join('\n\n');
+    
+    const fullPrompt = `You are a helpful AI assistant for Manifest Alchemy, helping users manifest their dreams into reality.
+
+${conversationHistory}
+Assistant:`;
+    
+    // Use HuggingFace text generation API with a publicly available model
+    // Using bigscience/bloom-560m as it's free and publicly available
     const response = await hf.textGeneration({
-      model: "google/flan-t5-large", // Simple conversational model
+      model: "bigscience/bloom-560m",
       inputs: userMessage,
       parameters: {
         max_new_tokens: 250,
-        return_full_text: false
+        return_full_text: false,
+        temperature: 0.7,
+        top_p: 0.9
       }
     });
 
     console.log('HuggingFace completion received');
 
-    const message = response.generated_text || "I'm sorry, I couldn't generate a response.";
+    const message = response.generated_text?.trim() || "I'm sorry, I couldn't generate a response.";
 
     return NextResponse.json({ 
       message: message,
@@ -42,11 +57,26 @@ export async function POST(request: NextRequest) {
     console.error("Chat API error:", error);
     console.error("Error details:", {
       message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined
     });
+    
+    // Provide more helpful error messages
+    let errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    
+    if (errorMessage.includes('API key')) {
+      errorMessage = 'HuggingFace API key is not configured. Please add HUGGINGFACE_API_KEY to your Vercel environment variables.';
+    } else if (errorMessage.includes('No Inference Provider') || errorMessage.includes('model')) {
+      errorMessage = 'The model is not available through the Inference API. Some models require special access. We are using an alternative model.';
+    } else if (errorMessage.includes('401') || errorMessage.includes('Unauthorized')) {
+      errorMessage = 'Invalid HuggingFace API key. Please verify your API key in Vercel environment variables.';
+    } else if (errorMessage.includes('429') || errorMessage.includes('rate limit')) {
+      errorMessage = 'HuggingFace API rate limit exceeded. Free accounts have limits. Please try again in a few minutes.';
+    }
+    
     return NextResponse.json({ 
       error: "Failed to process chat message",
-      message: `Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`
+      message: `Error: ${errorMessage}`
     }, { status: 500 });
   }
 }
