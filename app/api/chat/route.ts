@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { openai } from "@ai-sdk/openai";
 import { streamText } from "ai";
 
-export const runtime = "edge"; // optional but ideal for Vercel Edge Functions
-
 export async function POST(request: NextRequest) {
   try {
     const { messages } = await request.json();
@@ -22,7 +20,7 @@ export async function POST(request: NextRequest) {
     const result = await streamText({
       model: openai("gpt-4o-mini"),
       messages,
-      max_tokens: 250, // ✅ correct property name
+      maxTokens: 250,
     });
     
 
@@ -39,11 +37,11 @@ export async function POST(request: NextRequest) {
       message: fullText,
       usage,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error("Chat API error:", error);
 
     // 🩹 Graceful error handling with clear feedback
-    let errorMessage = error.message || "Unknown error occurred";
+    let errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
 
     if (
       errorMessage.includes("API key") ||
