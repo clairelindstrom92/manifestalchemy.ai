@@ -20,7 +20,6 @@ export async function POST(request: NextRequest) {
     const result = await streamText({
       model: openai("gpt-4o-mini"),
       messages,
-      maxTokens: 250,
     });
     
 
