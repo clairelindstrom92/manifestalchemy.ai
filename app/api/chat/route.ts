@@ -30,7 +30,14 @@ export async function POST(request: NextRequest) {
     }
 
     console.log("AI response complete, returning to client");
+    console.log("Full text length:", fullText.length);
+    console.log("Full text preview:", fullText.substring(0, 100));
     const usage = await result.usage;
+
+    // If empty, provide a default response
+    if (!fullText || fullText.trim() === "") {
+      fullText = "I'm sorry, I couldn't generate a response. Please try again.";
+    }
 
     return NextResponse.json({
       message: fullText,

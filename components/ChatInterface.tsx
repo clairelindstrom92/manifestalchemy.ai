@@ -61,18 +61,23 @@ export default function ChatInterface({ onBack }: ChatInterfaceProps) {
       });
 
       const data = await response.json();
+      console.log('Received data from API:', data);
 
       if (!response.ok) {
         throw new Error(data.message || data.error || 'Failed to get response');
       }
       
+      // Check if message exists and is not empty
+      const messageContent = data.message || data.response || "I'm sorry, I couldn't generate a response.";
+      
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: data.message,
+        content: messageContent,
         timestamp: new Date()
       };
 
+      console.log('Adding assistant message:', assistantMessage);
       setMessages(prev => [...prev, assistantMessage]);
     } catch (error) {
       console.error('Error sending message:', error);
