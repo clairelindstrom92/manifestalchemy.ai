@@ -35,17 +35,17 @@ Assistant:`;
     // Try using the direct API call first, then fallback to SDK
     let response;
     try {
-      console.log('Trying direct API call...');
-      const results = await callHFAPI(
-        "gpt2",
-        userMessage,
-        {
-          max_new_tokens: 250,
-          return_full_text: false,
-          temperature: 0.7,
-          top_p: 0.9
-        }
-      );
+             console.log('Trying direct API call...');
+       const results = await callHFAPI(
+         "facebook/blenderbot-400M-distill",
+         userMessage,
+         {
+           max_new_tokens: 250,
+           return_full_text: false,
+           temperature: 0.7,
+           top_p: 0.9
+         }
+       );
       
       // Handle array response from direct API
       if (Array.isArray(results) && results.length > 0) {
@@ -57,17 +57,17 @@ Assistant:`;
       }
     } catch (directError) {
       console.log('Direct API failed, trying SDK...', directError);
-      // Fallback to SDK
-      response = await hf.textGeneration({
-        model: "gpt2",
-        inputs: userMessage,
-        parameters: {
-          max_new_tokens: 250,
-          return_full_text: false,
-          temperature: 0.7,
-          top_p: 0.9
-        }
-      });
+             // Fallback to SDK
+       response = await hf.textGeneration({
+         model: "facebook/blenderbot-400M-distill",
+         inputs: userMessage,
+         parameters: {
+           max_new_tokens: 250,
+           return_full_text: false,
+           temperature: 0.7,
+           top_p: 0.9
+         }
+       });
     }
 
     console.log('HuggingFace completion received:', response);
