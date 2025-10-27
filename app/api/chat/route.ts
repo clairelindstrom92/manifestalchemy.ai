@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getHFClient, callHFAPI } from "../../../lib/openai";
+import { HfInference } from '@huggingface/inference';
+
+const hf = new HfInference(process.env.HUGGINGFACE_API_KEY);
 
 export async function POST(request: NextRequest) {
   try {
@@ -11,82 +13,27 @@ export async function POST(request: NextRequest) {
 
     console.log('API called with messages:', messages.length);
     
-    const hf = getHFClient();
-    
-    console.log('HuggingFace client created successfully');
-    
     // Get the last user message
     const lastMessage = messages[messages.length - 1];
     const userMessage = lastMessage.content;
     
     console.log('Sending to HuggingFace:', userMessage.substring(0, 50) + '...');
     
-    // Create a conversational prompt
-    const conversationHistory = messages.map(msg => 
-      `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
-    ).join('\n\n');
-    
-    const fullPrompt = `You are a helpful AI assistant for Manifest Alchemy, helping users manifest their dreams into reality.
+    // Use a model that works well with the Inference API
+    const response = await hf.textGeneration({
+      model: 'microsoft/DialoGPT-medium',
+      inputs: userMessage,
+      parameters: {
+        max_new_tokens: 250,
+        temperature: 0.7,
+        top_p: 0.9,
+        return_full_text: false
+      }
+    });
 
-${conversationHistory}
-Assistant:`;
-    
-    // Use HuggingFace API directly with GPT-2 model
-    // Try using the direct API call first, then fallback to SDK
-    let response;
-    try {
-             console.log('Trying direct API call...');
-       const results = await callHFAPI(
-         "facebook/blenderbot-400M-distill",
-         userMessage,
-         {
-           max_new_tokens: 250,
-           return_full_text: false,
-           temperature: 0.7,
-           top_p: 0.9
-         }
-       );
-      
-             // Handle different response formats
-       console.log('Raw results:', JSON.stringify(results));
-       
-       if (Array.isArray(results) && results.length > 0) {
-         // Handle array response
-         const firstResult = results[0];
-         if (firstResult.generated_text) {
-           response = { generated_text: firstResult.generated_text };
-         } else if (firstResult.text) {
-           response = { generated_text: firstResult.text };
-         } else {
-           response = { generated_text: firstResult.response || firstResult.summary || JSON.stringify(firstResult) };
-         }
-       } else if (results.generated_text) {
-         response = { generated_text: results.generated_text };
-       } else if (results.text) {
-         response = { generated_text: results.text };
-       } else {
-         // Try to extract any text from the response
-         const text = results.response || results.summary || results.output || JSON.stringify(results);
-         response = { generated_text: text };
-       }
-    } catch (directError) {
-      console.log('Direct API failed, trying SDK...', directError);
-             // Fallback to SDK
-       response = await hf.textGeneration({
-         model: "facebook/blenderbot-400M-distill",
-         inputs: userMessage,
-         parameters: {
-           max_new_tokens: 250,
-           return_full_text: false,
-           temperature: 0.7,
-           top_p: 0.9
-         }
-       });
-    }
+    console.log('HuggingFace completion received');
 
-    console.log('HuggingFace completion received:', response);
-
-    const message = response.generated_text?.trim() || response.text?.trim() || "I'm sorry, I couldn't generate a response.";
+    const message = response.generated_text?.trim() || "I'm sorry, I couldn't generate a response.";
 
     return NextResponse.json({ 
       message: message,
