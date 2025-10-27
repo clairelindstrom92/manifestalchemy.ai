@@ -20,10 +20,11 @@ export async function POST(request: NextRequest) {
 
     // ⚡ Stream the AI response using the Vercel AI SDK
     const result = await streamText({
-      model: openai("gpt-4o-mini"), // You can also use gpt-4-turbo or gpt-4o if you have access
+      model: openai("gpt-4o-mini"),
       messages,
-      maxTokens: 250,
+      max_tokens: 250, // ✅ correct property name
     });
+    
 
     // 🧠 Collect streamed response
     let fullText = "";
