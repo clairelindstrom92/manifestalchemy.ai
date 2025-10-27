@@ -19,15 +19,12 @@ export async function POST(request: NextRequest) {
     console.log('Sending to Vercel AI Gateway:', userMessage.substring(0, 50) + '...');
     
     // Use OpenAI with AI SDK
-    const result = await streamText({
-      model: openai('gpt-3.5-turbo'),
-      messages: messages.map(msg => ({
-        role: msg.role as 'user' | 'assistant',
-        content: msg.content
-      })),
-      maxTokens: 250,
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: formattedMessages,
+      max_tokens: 250, // ✅ correct key name
     });
-
+    
     // Collect all text parts
     let fullText = '';
     for await (const textPart of result.textStream) {
