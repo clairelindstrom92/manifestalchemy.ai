@@ -19,22 +19,23 @@ export async function POST(request: NextRequest) {
     const lastMessage = messages[messages.length - 1];
     const userMessage = lastMessage.content;
     
-    // Use HuggingFace chat completion
-    const response = await hf.chatCompletion({
-      model: "microsoft/DialoGPT-large", // Using a conversational model
-      messages: messages.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      })),
+    // Use HuggingFace text generation API
+    const response = await hf.textGeneration({
+      model: "google/flan-t5-large", // Simple conversational model
+      inputs: userMessage,
+      parameters: {
+        max_new_tokens: 250,
+        return_full_text: false
+      }
     });
 
     console.log('HuggingFace completion received');
 
-    const message = response.choices[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
+    const message = response.generated_text || "I'm sorry, I couldn't generate a response.";
 
     return NextResponse.json({ 
       message: message,
-      usage: response.usage 
+      usage: null
     });
 
   } catch (error) {
