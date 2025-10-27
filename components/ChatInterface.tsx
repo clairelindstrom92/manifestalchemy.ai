@@ -106,7 +106,7 @@ export default function ChatInterface({ onBack }: ChatInterfaceProps) {
       
       <div className="relative z-10 flex flex-col h-screen">
         {/* Header */}
-        <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 p-4">
+        <div className="bg-white/2 backdrop-blur-sm border-b border-white/10 p-4">
           <div className="flex items-center justify-between">
             {onBack && (
               <button
@@ -200,7 +200,7 @@ export default function ChatInterface({ onBack }: ChatInterfaceProps) {
         </div>
 
         {/* Input */}
-        <div className="bg-white/5 backdrop-blur-sm border-t border-white/10 p-4">
+        <div className="bg-white/2 backdrop-blur-sm border-t border-white/10 p-4">
           <div className="max-w-4xl mx-auto">
             <div className="flex space-x-2">
               <MagicalInput
