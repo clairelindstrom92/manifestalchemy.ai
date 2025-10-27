@@ -79,7 +79,7 @@ export default function ChatInterface({ onBack }: ChatInterfaceProps) {
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: "I'm sorry, I encountered an error. Please try again.",
+        content: `Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);

@@ -1,14 +1,15 @@
-import OpenAI from 'openai';
+import { HfInference } from '@huggingface/inference';
 
-export function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY || process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+export function getHFClient() {
+  const apiKey = process.env.HUGGINGFACE_API_KEY;
+  
+  console.log('Environment check:', {
+    HUGGINGFACE_API_KEY: apiKey ? 'Found' : 'Not found'
+  });
   
   if (!apiKey) {
-    throw new Error('OpenAI API key is not configured');
+    throw new Error('HuggingFace API key is not configured');
   }
   
-  return new OpenAI({
-    apiKey,
-    dangerouslyAllowBrowser: true,
-  });
+  return new HfInference(apiKey);
 }
