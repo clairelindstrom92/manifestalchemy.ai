@@ -1,7 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { HfInference } from '@huggingface/inference';
-
-const hf = new HfInference(process.env.HUGGINGFACE_API_KEY);
 
 export async function POST(request: NextRequest) {
   try {
@@ -17,23 +14,35 @@ export async function POST(request: NextRequest) {
     const lastMessage = messages[messages.length - 1];
     const userMessage = lastMessage.content;
     
-    console.log('Sending to HuggingFace:', userMessage.substring(0, 50) + '...');
+    console.log('Sending to Vercel AI Gateway:', userMessage.substring(0, 50) + '...');
     
-    // Use a model that works well with the Inference API
-    const response = await hf.textGeneration({
-      model: 'microsoft/DialoGPT-medium',
-      inputs: userMessage,
-      parameters: {
-        max_new_tokens: 250,
-        temperature: 0.7,
-        top_p: 0.9,
-        return_full_text: false
-      }
+    // Use Vercel AI Gateway
+    const response = await fetch('https://api.vercel.ai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.VERCEL_AI_GATEWAY_KEY || 'vck_6wE9cCfu8Otqlxh8h15debMS1CI38AJzE6JxujrhlaOfAvv5LF4MwzWD'}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'anthropic/claude-3-5-haiku',
+        messages: messages.map(msg => ({
+          role: msg.role,
+          content: msg.content
+        })),
+        max_tokens: 250,
+      }),
     });
 
-    console.log('HuggingFace completion received');
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('Vercel AI Gateway error:', errorData);
+      throw new Error(`Vercel AI Gateway error: ${response.status} - ${errorData}`);
+    }
 
-    const message = response.generated_text?.trim() || "I'm sorry, I couldn't generate a response.";
+    const data = await response.json();
+    console.log('Vercel AI Gateway completion received');
+
+    const message = data.choices?.[0]?.message?.content || "I'm sorry, I couldn't generate a response.";
 
     return NextResponse.json({ 
       message: message,
