@@ -48,7 +48,7 @@ export default function MagicalInput({
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        className="w-full px-4 py-3 bg-white/5 border border-white/15 rounded-xl text-white placeholder-white/50 focus:outline-none focus:border-white/40 transition-all duration-300 backdrop-blur-sm"
+        className="w-full px-4 py-3 bg-white/2 border border-white/10 rounded-xl text-white placeholder-white/50 focus:outline-none focus:border-white/40 transition-all duration-300 backdrop-blur-sm"
         style={{
           textShadow: '0 0 10px rgba(255, 255, 255, 0.3)',
           fontFamily: "'Quicksand', 'Poppins', sans-serif",

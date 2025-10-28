@@ -3,6 +3,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Send, Loader2 } from 'lucide-react';
+import { supabase } from '@/lib/supabaseClient';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 // Shared visual components
 import MagicalBackground from './shared/MagicalBackground';
@@ -21,15 +23,37 @@ interface Message {
   timestamp: Date;
 }
 
-interface ChatInterfaceProps {
-  onBack?: () => void;
+interface ProjectData {
+  id?: string;
+  title?: string;
+  messages?: string;
+  updated_at?: string;
 }
 
-export default function ChatInterface({ onBack }: ChatInterfaceProps) {
+interface ChatInterfaceProps {
+  onBack?: () => void;
+  project?: ProjectData | null;
+  onProjectUpdate?: () => void;
+  onProjectCreated?: (project: ProjectData) => void;
+}
+
+export default function ChatInterface({ onBack, project, onProjectUpdate, onProjectCreated }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { user } = useSupabaseUser();
+
+  useEffect(() => {
+    if (project?.messages) {
+      try {
+        const parsedMessages = JSON.parse(project.messages);
+        setMessages(parsedMessages);
+      } catch (error) {
+        console.error('Error parsing project messages:', error);
+      }
+    }
+  }, [project]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -49,7 +73,8 @@ export default function ChatInterface({ onBack }: ChatInterfaceProps) {
       timestamp: new Date()
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setInput('');
     setIsLoading(true);
 
@@ -60,7 +85,7 @@ export default function ChatInterface({ onBack }: ChatInterfaceProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          messages: [...messages, userMessage].map(msg => ({
+          messages: updatedMessages.map(msg => ({
             role: msg.role,
             content: msg.content
           }))
@@ -85,7 +110,16 @@ export default function ChatInterface({ onBack }: ChatInterfaceProps) {
       };
 
       console.log('Adding assistant message:', assistantMessage);
-      setMessages(prev => [...prev, assistantMessage]);
+      const finalMessages = [...updatedMessages, assistantMessage];
+      setMessages(finalMessages);
+      
+      // Save to Supabase
+      await saveMessages(finalMessages);
+      
+      // Trigger sidebar refresh
+      if (onProjectUpdate) {
+        onProjectUpdate();
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       const errorMessage: Message = {
@@ -100,13 +134,51 @@ export default function ChatInterface({ onBack }: ChatInterfaceProps) {
     }
   };
 
+  const saveMessages = async (updatedMessages: Message[]) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const messagesJson = JSON.stringify(updatedMessages);
+      const title = updatedMessages[0]?.content?.substring(0, 50) || 'New Manifestation';
+
+      if (project?.id) {
+        // Update existing project
+        await supabase
+          .from('manifestations')
+          .update({
+            messages: messagesJson,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', project.id);
+      } else {
+        // Create new project
+        const { data } = await supabase
+          .from('manifestations')
+          .insert({
+            user_id: user.id,
+            title: title,
+            messages: messagesJson
+          })
+          .select()
+          .single();
+        
+        if (data && onProjectCreated) {
+          onProjectCreated(data);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving messages:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen relative overflow-hidden">
       <MagicalBackground />
       
       <div className="relative z-10 flex flex-col h-screen">
         {/* Header */}
-        <div className="bg-white/2 backdrop-blur-sm border-b border-white/10 p-4">
+        <div className="backdrop-blur-sm border-b border-white/5 p-4">
           <div className="flex items-center justify-between">
             {onBack && (
               <button
@@ -200,7 +272,7 @@ export default function ChatInterface({ onBack }: ChatInterfaceProps) {
         </div>
 
         {/* Input */}
-        <div className="bg-white/2 backdrop-blur-sm border-t border-white/10 p-4">
+        <div className="backdrop-blur-sm border-t border-white/5 p-4">
           <div className="max-w-4xl mx-auto">
             <div className="flex space-x-2">
               <MagicalInput
@@ -220,6 +292,46 @@ export default function ChatInterface({ onBack }: ChatInterfaceProps) {
                 <Send className="w-4 h-4" />
               </MagicalButton>
             </div>
+            
+            {/* Save button section - only show for new projects without an ID */}
+            {messages.length > 0 && !project?.id && (
+              <div className="mt-4 text-center">
+                {user ? (
+                  <button
+                    onClick={async () => {
+                      const { error } = await supabase
+                        .from('manifestations')
+                        .insert([
+                          {
+                            user_id: user.id,
+                            title: messages[0]?.content.slice(0, 60) || "Untitled Manifestation",
+                            messages: JSON.stringify(messages),
+                          },
+                        ]);
+                      if (error) {
+                        console.error(error);
+                        alert("Failed to save manifestation 😞");
+                      } else {
+                        alert("✨ Manifestation saved to your Alchemy Journal!");
+                        if (onProjectUpdate) {
+                          onProjectUpdate();
+                        }
+                      }
+                    }}
+                    className="bg-amber-500 hover:bg-amber-400 text-black font-semibold px-6 py-3 rounded-xl transition"
+                  >
+                    Save Manifestation ✨
+                  </button>
+                ) : (
+                  <a
+                    href="/login"
+                    className="bg-white/10 hover:bg-white/20 text-white font-semibold px-6 py-3 rounded-xl transition inline-block"
+                  >
+                    Sign in to Save Manifestations 🌙
+                  </a>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

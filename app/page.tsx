@@ -4,12 +4,24 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import ChatInterface from '../components/ChatInterface';
+import Sidebar from '../components/Sidebar';
 import AnimatedStarBackground from '../components/AnimatedStarBackground';
+import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 
 type AppState = 'welcome' | 'chat';
 
+interface ProjectData {
+  id?: string;
+  title?: string;
+  messages?: string;
+  updated_at?: string;
+}
+
 export default function Home() {
   const [appState, setAppState] = useState<AppState>('welcome');
+  const [selectedProject, setSelectedProject] = useState<ProjectData | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const { user, loading } = useSupabaseUser();
 
   const handleStartChat = () => {
     setAppState('chat');
@@ -19,10 +31,41 @@ export default function Home() {
     setAppState('welcome');
   };
 
+  const handleProjectUpdate = () => {
+    setRefreshTrigger(prev => prev + 1);
+  };
+
+  const handleProjectCreated = (project: ProjectData) => {
+    setSelectedProject(project);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-white">
+        <div className="text-xl">Loading...</div>
+      </div>
+    );
+  }
+
   if (appState === 'chat') {
     return (
-      <div className="relative">
-        <ChatInterface onBack={handleBackToWelcome} />
+      <div className="flex h-screen">
+        {/* Sidebar only for logged-in users */}
+        {user && (
+          <Sidebar
+            onSelectProject={(p) => setSelectedProject(p)}
+            onNewProject={() => setSelectedProject(null)}
+            refreshTrigger={refreshTrigger}
+          />
+        )}
+        <div className="flex-1 relative">
+          <ChatInterface 
+            project={selectedProject} 
+            onBack={handleBackToWelcome}
+            onProjectUpdate={handleProjectUpdate}
+            onProjectCreated={handleProjectCreated}
+          />
+        </div>
       </div>
     );
   }

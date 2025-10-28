@@ -43,8 +43,20 @@ npm install
 3. Set up environment variables:
 Create a `.env.local` file in the root directory:
 ```bash
-HUGGINGFACE_API_KEY=your_huggingface_api_key_here
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url_here
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key_here
+
+# OpenAI Configuration (for chat functionality)
+OPENAI_API_KEY=your_openai_api_key_here
 ```
+
+**Getting your Supabase credentials:**
+1. Go to [supabase.com](https://supabase.com) and create a free account
+2. Create a new project
+3. Go to Project Settings → API
+4. Copy your Project URL and anon public key
+5. Paste them into your `.env.local` file
 
 4. Run the development server:
 ```bash
@@ -95,12 +107,13 @@ manifestalchemy.ai/
 
 ### ChatInterface
 - Simple ChatGPT-style interface
-- Real-time messaging
+- Real-time messaging with markdown support
 - Loading states and error handling
 - Back navigation to welcome page
+- Supabase integration for saving conversations
 
-### HuggingFace Integration
-- Uses HuggingFace Inference API for chat responses
+### OpenAI Integration
+- Uses OpenAI API for chat responses
 - Handles API errors gracefully
 - Simple message-based conversation flow
 
@@ -125,13 +138,48 @@ manifestalchemy.ai/
 
 ## Supabase Integration
 
-This app is ready for Supabase integration. To add database functionality:
+This app uses Supabase for authentication and data storage. Required setup:
 
-1. Create a Supabase project
-2. Add Supabase environment variables to Vercel:
+1. **Create a Supabase project:**
+   - Visit [supabase.com](https://supabase.com) and create a new project
+   - Wait for the project to finish setting up
+
+2. **Set up the database:**
+   - Go to SQL Editor in your Supabase dashboard
+   - Run this SQL to create the manifestations table:
+   ```sql
+   CREATE TABLE manifestations (
+     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+     user_id UUID REFERENCES auth.users(id) NOT NULL,
+     title TEXT NOT NULL,
+     messages TEXT NOT NULL,
+     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+   );
+   
+   CREATE INDEX idx_manifestations_user_id ON manifestations(user_id);
+   ```
+
+3. **Enable RLS (Row Level Security):**
+   ```sql
+   ALTER TABLE manifestations ENABLE ROW LEVEL SECURITY;
+   
+   CREATE POLICY "Users can view their own manifestations"
+     ON manifestations FOR SELECT
+     USING (auth.uid() = user_id);
+   
+   CREATE POLICY "Users can insert their own manifestations"
+     ON manifestations FOR INSERT
+     WITH CHECK (auth.uid() = user_id);
+   
+   CREATE POLICY "Users can update their own manifestations"
+     ON manifestations FOR UPDATE
+     USING (auth.uid() = user_id);
+   ```
+
+4. **Set environment variables** (already done in step 3 of installation)
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-3. Install Supabase client: `npm install @supabase/supabase-js`
 
 ## Customization
 
