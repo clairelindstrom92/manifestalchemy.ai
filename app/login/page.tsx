@@ -9,6 +9,13 @@ import { useRouter } from 'next/navigation';
 export default function LoginPage() {
   const router = useRouter();
 
+  // Get the correct redirect URL based on environment
+  const getRedirectUrl = () => {
+    if (typeof window === 'undefined') return '/';
+    const origin = window.location.origin;
+    return `${origin}/`;
+  };
+
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN') router.push('/');
@@ -50,6 +57,7 @@ export default function LoginPage() {
           }}
           theme="dark"
           providers={['google']}
+          redirectTo={getRedirectUrl()}
         />
       </div>
     </div>

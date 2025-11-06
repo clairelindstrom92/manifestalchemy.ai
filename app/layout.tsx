@@ -12,6 +12,20 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Get base URL for metadata
+const getBaseUrl = () => {
+  if (process.env.NEXT_PUBLIC_SITE_URL) {
+    return process.env.NEXT_PUBLIC_SITE_URL;
+  }
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+  return 'https://manifestalchemy.ai';
+};
+
+const baseUrl = getBaseUrl();
+const logoUrl = `${baseUrl}/custom-logo.png`;
+
 export const metadata: Metadata = {
   title: "Manifestation Alchemy - Transform Your Dreams Into Reality",
   description: "AI-powered manifestation coaching with personalized plans and actionable steps to help you achieve your goals.",
@@ -40,14 +54,26 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Manifestation Alchemy - Transform Your Dreams Into Reality',
     description: 'AI-powered manifestation coaching with personalized plans and actionable steps to help you achieve your goals.',
-    images: ['/custom-logo.png'],
+    url: baseUrl,
+    siteName: 'Manifest Alchemy',
+    images: [
+      {
+        url: logoUrl,
+        width: 1200,
+        height: 630,
+        alt: 'Manifest Alchemy Logo',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Manifestation Alchemy',
     description: 'Transform Your Dreams Into Reality',
-    images: ['/custom-logo.png'],
+    images: [logoUrl],
   },
+  metadataBase: new URL(baseUrl),
 };
 
 export default function RootLayout({
