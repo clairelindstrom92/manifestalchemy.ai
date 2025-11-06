@@ -11,9 +11,9 @@ export default function LoginPage() {
 
   // Get the correct redirect URL based on environment
   const getRedirectUrl = () => {
-    if (typeof window === 'undefined') return '/';
+    if (typeof window === 'undefined') return '/auth/callback';
     const origin = window.location.origin;
-    return `${origin}/`;
+    return `${origin}/auth/callback`;
   };
 
   useEffect(() => {
