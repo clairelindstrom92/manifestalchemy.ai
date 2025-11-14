@@ -25,7 +25,17 @@ if (supabaseUrl && supabaseServiceKey) {
   }
 }
 
-const openaiRaw = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+// Check for OpenAI API key
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+if (!OPENAI_API_KEY) {
+  if (process.env.NODE_ENV === 'development') {
+    console.error("OPENAI_API_KEY is not set in environment variables");
+  }
+}
+
+const openaiRaw = OPENAI_API_KEY 
+  ? new OpenAI({ apiKey: OPENAI_API_KEY })
+  : null;
 
 // Your existing system prompt (unchanged)
 const systemPrompt = `
@@ -43,7 +53,7 @@ IMPORTANT: Ask only ONE question per response. Do not list multiple questions. H
 // Fetch optional notes from Supabase (gracefully handles failures)
 async function fetchOptionalNotes(question: string) {
   // If Supabase isn't configured or no question, return empty
-  if (!supabase || !question?.trim()) {
+  if (!supabase || !question?.trim() || !openaiRaw) {
     return { text: "", count: 0 };
   }
 
@@ -88,8 +98,26 @@ async function fetchOptionalNotes(question: string) {
 }
 
 export async function POST(request: NextRequest) {
+  // Ensure we always return JSON, even if there's an unexpected error
   try {
-    const { messages } = await request.json();
+    // Check for OpenAI API key first
+    if (!OPENAI_API_KEY || !openaiRaw) {
+      return NextResponse.json(
+        { error: "OpenAI API key is not configured", message: "Please set OPENAI_API_KEY environment variable" },
+        { status: 500 }
+      );
+    }
+
+    let messages;
+    try {
+      const body = await request.json();
+      messages = body.messages;
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid request body", message: "Could not parse JSON from request" },
+        { status: 400 }
+      );
+    }
 
     if (!messages || !Array.isArray(messages)) {
       return NextResponse.json(
@@ -125,7 +153,55 @@ Do NOT say you're restricted to notes. Keep answers direct.
 ${notes.text ? `\n--- Optional notes (may use or ignore) ---\n${notes.text}\n--- end optional notes ---\n` : ""}
 `.trim();
 
+async function extractManifestationIntent(conversation: Array<{ role: string; content: string }>) {
+  if (!openaiRaw) {
+    return null;
+  }
+
+  try {
+    const recent = conversation
+      .slice(-10)
+      .map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`)
+      .join("\n");
+
+    const completion = await openaiRaw.chat.completions.create({
+      model: CHAT_MODEL,
+      temperature: 0,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "You decide whether the manifestation topic is specific enough to name. Respond only with JSON containing title, summary, confidence (0-1), reason, microTasks, and imagePrompts. Provide 3-5 microTasks, each with an id (e.g., task-1), concise title, optional description, and completed=false. Provide 2-3 poetic imagePrompts capturing the manifestation vibe. Use null title if details are insufficient and set confidence to 0.",
+        },
+        {
+          role: "user",
+          content: `Conversation so far:\n${recent}\n\nReturn JSON like {"title":"Manifest midnight blue Tesla Model Y","summary":"User wants to attract a new electric SUV","confidence":0.82,"reason":"User described model, color, desire","microTasks":[{"id":"task-1","title":"Test-drive Model Y","description":"Schedule weekend visit","completed":false}],"imagePrompts":["Hyperreal photo of midnight-blue Tesla Model Y under starlit sky"]}`,
+        },
+      ],
+    });
+
+    const content = completion.choices?.[0]?.message?.content;
+    if (!content) {
+      return null;
+    }
+
+    return JSON.parse(content);
+  } catch (error) {
+    console.warn("Intent extraction failed:", error);
+    return null;
+  }
+}
+
     // Stream the response (unchanged mechanics)
+    if (!OPENAI_API_KEY || !openaiRaw) {
+      return NextResponse.json(
+        { error: "OpenAI API key is not configured", message: "Please set OPENAI_API_KEY environment variable" },
+        { status: 500 }
+      );
+    }
+
+    // Stream the response - vercelOpenAI automatically uses OPENAI_API_KEY from env
     const result = await streamText({
       model: vercelOpenAI(CHAT_MODEL),
       messages: [
@@ -150,7 +226,12 @@ ${notes.text ? `\n--- Optional notes (may use or ignore) ---\n${notes.text}\n---
       fullText = "I'm sorry, I couldn't generate a response. Please try again.";
     }
 
-    return NextResponse.json({ message: fullText, usage, notes_used: notes.count });
+    const intent = await extractManifestationIntent([
+      ...messages,
+      { role: "assistant", content: fullText },
+    ]);
+
+    return NextResponse.json({ message: fullText, usage, notes_used: notes.count, intent });
   } catch (error) {
     console.error("Chat API error:", error);
 

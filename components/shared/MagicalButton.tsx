@@ -48,7 +48,7 @@ export default function MagicalButton({
       style={{
         fontFamily: "'Quicksand', 'Poppins', sans-serif",
         letterSpacing: '0.15em',
-        textShadow: '0 0 10px rgba(255, 215, 0, 0.5), 0 0 20px rgba(255, 215, 0, 0.3)',
+        textShadow: '0 0 10px rgba(228, 183, 125, 0.7), 0 0 20px rgba(228, 183, 125, 0.5), 0 0 30px rgba(228, 183, 125, 0.3)',
         textTransform: 'uppercase'
       }}
       whileHover={{ scale: disabled ? 1 : 1.05 }}

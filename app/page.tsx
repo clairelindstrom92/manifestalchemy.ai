@@ -1,22 +1,26 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { Gold } from 'gleamy';
 import ChatInterface from '../components/ChatInterface';
 import Sidebar from '../components/Sidebar';
 import AnimatedStarBackground from '../components/AnimatedStarBackground';
+import Dashboard from '../components/Dashboard';
 import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 import { supabase } from '@/lib/supabaseClient';
 
-type AppState = 'welcome' | 'chat';
+type AppState = 'welcome' | 'chat' | 'dashboard';
 
 interface ProjectData {
   id?: string;
   title?: string;
   messages?: string;
   updated_at?: string;
+  content?: string;
+  manifestation_id?: string | null;
 }
 
 export default function Home() {
@@ -26,8 +30,32 @@ export default function Home() {
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
 
+  // Show dashboard first if user is logged in
+  useEffect(() => {
+    if (!loading && user && appState === 'welcome') {
+      setAppState('dashboard');
+    }
+    // If user logs out, go back to welcome
+    if (!loading && !user && appState === 'dashboard') {
+      setAppState('welcome');
+    }
+  }, [user, loading]);
+
   const handleStartChat = () => {
-    setAppState('chat');
+    // Always go to dashboard if logged in, otherwise chat
+    if (user) {
+      router.push('/');
+    } else {
+      router.push('/chat');
+    }
+  };
+
+  const handleNavigate = (section: string) => {
+    if (section === 'Chat' || section === 'chat') {
+      router.push('/chat');
+    } else {
+      // Other sections are handled by the Dashboard component's router.push
+    }
   };
 
   const handleBackToWelcome = () => {
@@ -60,34 +88,14 @@ export default function Home() {
     );
   }
 
-  if (appState === 'chat') {
-    return (
-      <div className="flex h-screen">
-        {/* Sidebar only for logged-in users */}
-        {user && (
-          <Sidebar
-            onSelectProject={(p) => setSelectedProject(p)}
-            onNewProject={() => setSelectedProject(null)}
-            refreshTrigger={refreshTrigger}
-          />
-        )}
-        <div className="flex-1 relative">
-          <ChatInterface 
-            project={selectedProject} 
-            onBack={handleBackToWelcome}
-            onProjectUpdate={handleProjectUpdate}
-            onProjectCreated={handleProjectCreated}
-            onProjectDeleted={handleProjectDeleted}
-          />
-        </div>
-      </div>
-    );
+  if (user) {
+    return <Dashboard onNavigate={handleNavigate} />;
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-[#0a0a0f] relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-6 bg-black relative overflow-hidden">
       {/* Subtle gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-[#0a0a0f] via-[#151520] to-[#0a0a0f]"></div>
+      <div className="absolute inset-0 bg-black"></div>
       {/* Animated stars overlay */}
       <AnimatedStarBackground />
 
@@ -96,12 +104,22 @@ export default function Home() {
         {user ? (
           <button
             onClick={handleLogout}
-            className="relative bg-gradient-to-r from-indigo-500/20 via-blue-500/25 to-indigo-500/20 hover:from-indigo-500/30 hover:via-blue-500/35 hover:to-indigo-500/30 border border-indigo-400/30 hover:border-indigo-400/40 text-[#f5f5f7] px-4 py-2 rounded-full transition-all duration-500 backdrop-blur-sm overflow-hidden text-xs font-medium"
+            className="relative text-[#f5f5f7] px-4 py-2 rounded-full transition-all duration-500 backdrop-blur-sm overflow-hidden text-xs font-medium gold-shiny"
             style={{
-              textShadow: '0 0 10px rgba(99, 102, 241, 0.5), 0 0 20px rgba(99, 102, 241, 0.3)',
+              background: 'linear-gradient(to right, rgba(228, 183, 125, 0.2), rgba(228, 183, 125, 0.25), rgba(228, 183, 125, 0.2))',
+              border: '1px solid rgba(228, 183, 125, 0.3)',
+              textShadow: '0 0 10px rgba(228, 183, 125, 0.7), 0 0 20px rgba(228, 183, 125, 0.5), 0 0 30px rgba(228, 183, 125, 0.3)',
               fontFamily: "'Quicksand', 'Poppins', sans-serif",
               letterSpacing: '0.1em',
               textTransform: 'uppercase'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(to right, rgba(228, 183, 125, 0.3), rgba(228, 183, 125, 0.35), rgba(228, 183, 125, 0.3))';
+              e.currentTarget.style.borderColor = 'rgba(228, 183, 125, 0.4)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(to right, rgba(228, 183, 125, 0.2), rgba(228, 183, 125, 0.25), rgba(228, 183, 125, 0.2))';
+              e.currentTarget.style.borderColor = 'rgba(228, 183, 125, 0.3)';
             }}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-shimmer"></div>
@@ -110,17 +128,27 @@ export default function Home() {
         ) : (
           <button
             onClick={() => router.push('/login')}
-            className="relative bg-gradient-to-r from-indigo-500/20 via-blue-500/25 to-indigo-500/20 hover:from-indigo-500/30 hover:via-blue-500/35 hover:to-indigo-500/30 border border-indigo-400/30 hover:border-indigo-400/40 text-[#f5f5f7] px-4 py-2 rounded-full transition-all duration-500 backdrop-blur-sm overflow-hidden text-xs font-medium"
+            className="relative text-[#f5f5f7] px-4 py-2 rounded-full transition-all duration-500 backdrop-blur-sm overflow-hidden text-xs font-medium gold-shiny"
             style={{
-              textShadow: '0 0 10px rgba(99, 102, 241, 0.5), 0 0 20px rgba(99, 102, 241, 0.3)',
+              background: 'linear-gradient(to right, rgba(228, 183, 125, 0.2), rgba(228, 183, 125, 0.25), rgba(228, 183, 125, 0.2))',
+              border: '1px solid rgba(228, 183, 125, 0.3)',
+              textShadow: '0 0 10px rgba(228, 183, 125, 0.7), 0 0 20px rgba(228, 183, 125, 0.5), 0 0 30px rgba(228, 183, 125, 0.3)',
               fontFamily: "'Quicksand', 'Poppins', sans-serif",
               letterSpacing: '0.1em',
               textTransform: 'uppercase'
             }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(to right, rgba(228, 183, 125, 0.3), rgba(228, 183, 125, 0.35), rgba(228, 183, 125, 0.3))';
+              e.currentTarget.style.borderColor = 'rgba(228, 183, 125, 0.4)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'linear-gradient(to right, rgba(228, 183, 125, 0.2), rgba(228, 183, 125, 0.25), rgba(228, 183, 125, 0.2))';
+              e.currentTarget.style.borderColor = 'rgba(228, 183, 125, 0.3)';
+            }}
           >
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-shimmer"></div>
-            <div className="absolute top-1 left-2 w-1 h-1 bg-indigo-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s', animationDuration: '2s' }}></div>
-            <div className="absolute bottom-1 right-2 w-1 h-1 bg-blue-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '1s', animationDuration: '2.5s' }}></div>
+                <div className="absolute top-1 left-2 w-1 h-1 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s', animationDuration: '2s', backgroundColor: '#E4B77D', boxShadow: '0 0 6px rgba(228, 183, 125, 0.8)' }}></div>
+                <div className="absolute bottom-1 right-2 w-1 h-1 rounded-full animate-ping opacity-60" style={{ animationDelay: '1s', animationDuration: '2.5s', backgroundColor: '#F0C896', boxShadow: '0 0 6px rgba(240, 200, 150, 0.8)' }}></div>
             <span className="relative z-10">Login</span>
           </button>
         )}
@@ -139,11 +167,11 @@ export default function Home() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.5 }}
             >
-              {/* Blue aura background */}
+              {/* Gold aura background */}
               <div 
                 className="absolute inset-0 blur-xl opacity-60"
                 style={{
-                  background: 'radial-gradient(ellipse at center, rgba(99, 102, 241, 0.4) 0%, rgba(139, 92, 246, 0.3) 30%, rgba(124, 58, 237, 0.2) 60%, transparent 100%)',
+                  background: 'radial-gradient(ellipse at center, rgba(228, 183, 125, 0.6) 0%, rgba(228, 183, 125, 0.4) 30%, rgba(240, 200, 150, 0.3) 60%, transparent 100%)',
                   transform: 'scale(1.5)',
                   zIndex: -1
                 }}
@@ -162,34 +190,46 @@ export default function Home() {
                   ease: "easeInOut"
                 }}
                 style={{
-                  background: 'radial-gradient(ellipse at center, rgba(99, 102, 241, 0.6) 0%, rgba(139, 92, 246, 0.4) 50%, transparent 100%)',
+                  background: 'radial-gradient(ellipse at center, rgba(228, 183, 125, 0.8) 0%, rgba(240, 200, 150, 0.6) 50%, transparent 100%)',
                   zIndex: -1
                 }}
               ></motion.div>
               
-              <motion.h1 
-                className="relative text-3xl md:text-4xl text-white ballet-font z-10"
+              <h1 
+                className="relative text-2xl sm:text-3xl md:text-4xl lg:text-5xl ballet-font z-10 px-4 mb-2"
                 style={{ 
-                  textShadow: '0 0 20px rgba(255, 255, 255, 0.8), 0 0 40px rgba(99, 102, 241, 0.6), 0 0 60px rgba(139, 92, 246, 0.4)',
-                  letterSpacing: '0.1em'
+                  letterSpacing: '0.1em',
+                  lineHeight: '1.2',
+                  position: 'relative',
                 }}
               >
-                Manifest Alchemy
-              </motion.h1>
-              <p className="text-[#a1a1aa] text-sm mt-2">Transform your dreams into reality</p>
+                <span 
+                  className="relative z-30"
+                  style={{
+                    color: '#FFFFFF',
+                    textShadow: '0 0 20px rgba(228, 183, 125, 0.8), 0 0 40px rgba(228, 183, 125, 0.6), 0 0 60px rgba(228, 183, 125, 0.4)',
+                    WebkitTextStroke: '1px rgba(228, 183, 125, 0.8)',
+                    display: 'inline-block',
+                    position: 'relative',
+                  }}
+                >
+                  Manifest Alchemy
+                </span>
+              </h1>
+              <p className="text-[#a1a1aa] text-xs sm:text-sm mt-2 px-4">Transform your dreams into reality</p>
             </motion.div>
             {/* Custom Logo */}
             <motion.div
               initial={{ scale: 0, rotate: -180 }}
               animate={{ 
                 scale: 1, 
-                rotate: 0,
-                transition: { duration: 1, delay: 0.3 }
+                rotate: 0
               }}
+              transition={{ duration: 1, delay: 0.3 }}
               className="mb-8"
             >
               <motion.div 
-                className="w-60 h-60 mx-auto flex items-center justify-center relative"
+                className="w-48 h-48 sm:w-60 sm:h-60 md:w-72 md:h-72 mx-auto flex items-center justify-center relative"
                 animate={{ 
                   scale: [1, 1.2, 1.2, 0.6, 0.6, 1],
                   opacity: [0.9, 1, 1, 0.8, 0.8, 0.9]
@@ -202,7 +242,7 @@ export default function Home() {
                   delay: 1.3
                 }}
                 style={{
-                  filter: 'drop-shadow(0 0 20px rgba(99, 102, 241, 0.3))',
+                  filter: 'drop-shadow(0 0 20px rgba(228, 183, 125, 0.6)) drop-shadow(0 0 30px rgba(228, 183, 125, 0.4))',
                 }}
               >
                 
@@ -219,12 +259,22 @@ export default function Home() {
             <div className="space-y-6">
             <motion.button
               onClick={handleStartChat}
-              className="relative w-full max-w-xs mx-auto flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-500/10 via-blue-500/15 to-indigo-500/10 hover:from-indigo-500/20 hover:via-blue-500/25 hover:to-indigo-500/20 text-white rounded-full text-xs font-medium transition-all duration-500 transform hover:scale-105 shadow-lg backdrop-blur-sm border border-indigo-400/20 hover:border-indigo-400/40 overflow-hidden"
+              className="relative w-full max-w-xs mx-auto flex items-center justify-center gap-2 px-4 py-2 text-white rounded-full text-xs font-medium transition-all duration-500 transform hover:scale-105 shadow-lg backdrop-blur-sm overflow-hidden gold-shiny"
               style={{
+                background: 'linear-gradient(to right, rgba(228, 183, 125, 0.1), rgba(228, 183, 125, 0.15), rgba(228, 183, 125, 0.1))',
+                border: '1px solid rgba(228, 183, 125, 0.2)',
                 fontFamily: "'Quicksand', 'Poppins', sans-serif",
                 letterSpacing: '0.15em',
-                textShadow: '0 0 10px rgba(99, 102, 241, 0.5), 0 0 20px rgba(99, 102, 241, 0.3)',
+                textShadow: '0 0 10px rgba(228, 183, 125, 0.7), 0 0 20px rgba(228, 183, 125, 0.5), 0 0 30px rgba(228, 183, 125, 0.3)',
                 textTransform: 'uppercase'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(to right, rgba(228, 183, 125, 0.2), rgba(228, 183, 125, 0.25), rgba(228, 183, 125, 0.2))';
+                e.currentTarget.style.borderColor = 'rgba(228, 183, 125, 0.4)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(to right, rgba(228, 183, 125, 0.1), rgba(228, 183, 125, 0.15), rgba(228, 183, 125, 0.1))';
+                e.currentTarget.style.borderColor = 'rgba(228, 183, 125, 0.2)';
               }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
@@ -234,12 +284,12 @@ export default function Home() {
             >
               {/* Sparkle particles */}
               <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute top-2 left-4 w-1 h-1 bg-indigo-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s', animationDuration: '2s' }}></div>
-                <div className="absolute top-3 right-6 w-1 h-1 bg-blue-200 rounded-full animate-ping opacity-70" style={{ animationDelay: '0.5s', animationDuration: '2.5s' }}></div>
-                <div className="absolute bottom-2 left-8 w-1 h-1 bg-indigo-400 rounded-full animate-ping opacity-50" style={{ animationDelay: '1s', animationDuration: '3s' }}></div>
-                <div className="absolute bottom-3 right-4 w-1 h-1 bg-blue-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '1.5s', animationDuration: '2.2s' }}></div>
-                <div className="absolute top-1/2 left-2 w-1 h-1 bg-indigo-200 rounded-full animate-ping opacity-40" style={{ animationDelay: '2s', animationDuration: '2.8s' }}></div>
-                <div className="absolute top-1/2 right-2 w-1 h-1 bg-blue-400 rounded-full animate-ping opacity-55" style={{ animationDelay: '2.5s', animationDuration: '2.3s' }}></div>
+                <div className="absolute top-2 left-4 w-1 h-1 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s', animationDuration: '2s', backgroundColor: '#E4B77D', boxShadow: '0 0 6px rgba(228, 183, 125, 0.8)' }}></div>
+                <div className="absolute top-3 right-6 w-1 h-1 rounded-full animate-ping opacity-70" style={{ animationDelay: '0.5s', animationDuration: '2.5s', backgroundColor: '#F0C896', boxShadow: '0 0 6px rgba(240, 200, 150, 0.8)' }}></div>
+                <div className="absolute bottom-2 left-8 w-1 h-1 rounded-full animate-ping opacity-50" style={{ animationDelay: '1s', animationDuration: '3s', backgroundColor: '#E4B77D', boxShadow: '0 0 6px rgba(228, 183, 125, 0.8)' }}></div>
+                <div className="absolute bottom-3 right-4 w-1 h-1 rounded-full animate-ping opacity-60" style={{ animationDelay: '1.5s', animationDuration: '2.2s', backgroundColor: '#F0C896', boxShadow: '0 0 6px rgba(240, 200, 150, 0.8)' }}></div>
+                <div className="absolute top-1/2 left-2 w-1 h-1 rounded-full animate-ping opacity-40" style={{ animationDelay: '2s', animationDuration: '2.8s', backgroundColor: '#E4B77D', boxShadow: '0 0 6px rgba(228, 183, 125, 0.8)' }}></div>
+                <div className="absolute top-1/2 right-2 w-1 h-1 rounded-full animate-ping opacity-55" style={{ animationDelay: '2.5s', animationDuration: '2.3s', backgroundColor: '#F0C896', boxShadow: '0 0 6px rgba(240, 200, 150, 0.8)' }}></div>
               </div>
               
               {/* Shimmer effect */}

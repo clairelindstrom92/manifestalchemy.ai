@@ -10,8 +10,11 @@ interface ProjectData {
   id?: string;
   title?: string;
   messages?: string;
+  content?: string;
   updated_at?: string;
-  user_id?: string;
+  created_at?: string;
+  author_id?: string;
+  manifestation_id?: string | null;
 }
 
 interface SidebarProps {
@@ -39,13 +42,25 @@ export default function Sidebar({ onSelectProject, onNewProject, refreshTrigger 
       }
 
       const { data, error } = await supabase
-        .from('manifestations')
+        .from('posts')
         .select('*')
-        .eq('user_id', user.data.user.id)
-        .order('updated_at', { ascending: false });
+        .eq('author_id', user.data.user.id)
+        .order('created_at', { ascending: false });
 
-      if (error) console.error('Error loading projects:', error);
-      else setProjects(data || []);
+      if (error) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error loading projects:', {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
+        }
+        // Set empty array on error to prevent UI issues
+        setProjects([]);
+      } else {
+        setProjects(data || []);
+      }
       setLoading(false);
     };
     
@@ -56,17 +71,27 @@ export default function Sidebar({ onSelectProject, onNewProject, refreshTrigger 
     <div className="w-64 bg-[#151520] border-r border-[#2a2a3a] text-[#f5f5f7] flex flex-col h-screen">
       {/* Header */}
       <div className="p-4 border-b border-[#2a2a3a] flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-[#f5f5f7] flex items-center gap-2">
-          <Sparkles size={18} className="text-[#6366f1]" /> Manifestations
+          <h2 className="text-lg font-semibold text-[#f5f5f7] flex items-center gap-2">
+          <Sparkles size={18} className="text-[#E4B77D] gold-shiny" /> Manifestations
         </h2>
         <button
           onClick={onNewProject}
-          className="relative bg-gradient-to-r from-indigo-500/20 via-blue-500/25 to-indigo-500/20 hover:from-indigo-500/30 hover:via-blue-500/35 hover:to-indigo-500/30 border border-indigo-400/30 hover:border-indigo-400/40 transition-all duration-500 backdrop-blur-sm overflow-hidden px-3 py-1.5 rounded-full text-xs font-medium text-[#f5f5f7]"
+          className="relative transition-all duration-500 backdrop-blur-sm overflow-hidden px-3 py-1.5 rounded-full text-xs font-medium text-[#f5f5f7] gold-shiny"
           style={{
-            textShadow: '0 0 10px rgba(99, 102, 241, 0.5), 0 0 20px rgba(99, 102, 241, 0.3)',
+            background: 'linear-gradient(to right, rgba(228, 183, 125, 0.2), rgba(228, 183, 125, 0.25), rgba(228, 183, 125, 0.2))',
+            border: '1px solid rgba(228, 183, 125, 0.3)',
+            textShadow: '0 0 10px rgba(228, 183, 125, 0.7), 0 0 20px rgba(228, 183, 125, 0.5), 0 0 30px rgba(228, 183, 125, 0.3)',
             fontFamily: "'Quicksand', 'Poppins', sans-serif",
             letterSpacing: '0.1em',
             textTransform: 'uppercase'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'linear-gradient(to right, rgba(228, 183, 125, 0.3), rgba(228, 183, 125, 0.35), rgba(228, 183, 125, 0.3))';
+            e.currentTarget.style.borderColor = 'rgba(228, 183, 125, 0.4)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'linear-gradient(to right, rgba(228, 183, 125, 0.2), rgba(228, 183, 125, 0.25), rgba(228, 183, 125, 0.2))';
+            e.currentTarget.style.borderColor = 'rgba(228, 183, 125, 0.3)';
           }}
         >
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-shimmer"></div>
@@ -91,7 +116,7 @@ export default function Sidebar({ onSelectProject, onNewProject, refreshTrigger 
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
             >
-              <div className="font-medium text-[#f5f5f7] text-sm">{p.title || 'Untitled'}</div>
+              <div className="font-medium text-[#f5f5f7] text-sm">{p.title || 'Manifestation in progress'}</div>
               <div className="text-xs text-[#71717a] mt-1">
                 {p.updated_at ? new Date(p.updated_at).toLocaleDateString() : 'No date'}
               </div>
@@ -104,12 +129,22 @@ export default function Sidebar({ onSelectProject, onNewProject, refreshTrigger 
       <div className="p-4 border-t border-[#2a2a3a]">
         <button
           onClick={handleLogout}
-          className="relative w-full flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-500/20 via-blue-500/25 to-indigo-500/20 hover:from-indigo-500/30 hover:via-blue-500/35 hover:to-indigo-500/30 border border-indigo-400/30 hover:border-indigo-400/40 text-[#f5f5f7] rounded-full transition-all duration-500 backdrop-blur-sm overflow-hidden text-xs font-medium"
+          className="relative w-full flex items-center justify-center gap-2 px-4 py-2 text-[#f5f5f7] rounded-full transition-all duration-500 backdrop-blur-sm overflow-hidden text-xs font-medium gold-shiny"
           style={{
-            textShadow: '0 0 10px rgba(99, 102, 241, 0.5), 0 0 20px rgba(99, 102, 241, 0.3)',
+            background: 'linear-gradient(to right, rgba(228, 183, 125, 0.2), rgba(228, 183, 125, 0.25), rgba(228, 183, 125, 0.2))',
+            border: '1px solid rgba(228, 183, 125, 0.3)',
+            textShadow: '0 0 10px rgba(228, 183, 125, 0.7), 0 0 20px rgba(228, 183, 125, 0.5), 0 0 30px rgba(228, 183, 125, 0.3)',
             fontFamily: "'Quicksand', 'Poppins', sans-serif",
             letterSpacing: '0.1em',
             textTransform: 'uppercase'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'linear-gradient(to right, rgba(228, 183, 125, 0.3), rgba(228, 183, 125, 0.35), rgba(228, 183, 125, 0.3))';
+            e.currentTarget.style.borderColor = 'rgba(228, 183, 125, 0.4)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'linear-gradient(to right, rgba(228, 183, 125, 0.2), rgba(228, 183, 125, 0.25), rgba(228, 183, 125, 0.2))';
+            e.currentTarget.style.borderColor = 'rgba(228, 183, 125, 0.3)';
           }}
         >
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-shimmer"></div>

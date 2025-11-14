@@ -1,0 +1,379 @@
+'use client';
+
+import React from 'react';
+import { useRouter } from 'next/navigation';
+import { Gold } from 'gleamy';
+import { ArrowLeft, Heart, RefreshCw } from 'lucide-react';
+
+export default function AffirmationsPage() {
+  const router = useRouter();
+
+  const affirmations = [
+    "I am worthy of all my dreams and desires.",
+    "I attract abundance and prosperity into my life.",
+    "Every day, I grow stronger and more confident.",
+    "I am surrounded by love and positive energy.",
+    "My thoughts create my reality, and I choose positivity.",
+  ];
+
+  return (
+    <div className="min-h-screen bg-black text-white">
+      <div className="absolute top-4 left-4 z-10">
+        <button
+          onClick={() => router.push('/')}
+          className="p-2 rounded-full border border-[#E4B77D] text-[#E4B77D] hover:bg-[#E4B77D]/10 transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+      </div>
+      
+      <div className="max-w-2xl mx-auto pt-20 px-4 pb-8">
+        <Gold acceleration={1} rendering={true} noFill={false} edgeThickness={1} spread={0.5}>
+          <h1 className="text-3xl font-bold text-white mb-8 text-center flex items-center justify-center gap-3">
+            <Heart className="w-8 h-8 text-[#E4B77D]" />
+            Daily Affirmations
+          </h1>
+        </Gold>
+        
+        <div className="mb-6 text-center">
+          <button className="px-6 py-3 border border-[#E4B77D] text-[#E4B77D] rounded-lg hover:bg-[#E4B77D]/10 transition-colors flex items-center gap-2 mx-auto">
+            <RefreshCw className="w-5 h-5" />
+            New Affirmation
+          </button>
+        </div>
+        
+        <div className="space-y-4">
+          {affirmations.map((affirmation, index) => (
+            <div
+              key={index}
+              className="border border-[#E4B77D]/30 rounded-lg p-6 bg-black/50 backdrop-blur-sm hover:border-[#E4B77D]/50 transition-colors"
+            >
+              <p className="text-white text-lg leading-relaxed">{affirmation}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+'use client';
+
+import React from 'react';
+import { useRouter } from 'next/navigation';
+import { Gold } from 'gleamy';
+import { ArrowLeft, Calendar, Moon, Sun, Star } from 'lucide-react';
+
+export default function BirthChartPage() {
+  const router = useRouter();
+
+  return (
+    <div className="min-h-screen bg-black text-white">
+      <div className="absolute top-4 left-4 z-10">
+        <button
+          onClick={() => router.push('/')}
+          className="p-2 rounded-full border border-[#E4B77D] text-[#E4B77D] hover:bg-[#E4B77D]/10 transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+      </div>
+      
+      <div className="max-w-3xl mx-auto pt-20 px-4 pb-8">
+        <Gold acceleration={1} rendering={true} noFill={false} edgeThickness={1} spread={0.5}>
+          <h1 className="text-3xl font-bold text-white mb-8 text-center flex items-center justify-center gap-3">
+            <Calendar className="w-8 h-8 text-[#E4B77D]" />
+            Birth Chart
+          </h1>
+        </Gold>
+        
+        <div className="border border-[#E4B77D]/30 rounded-lg p-8 bg-black/50 backdrop-blur-sm mb-6">
+          <div className="text-center mb-6">
+            <p className="text-[#E4B77D]/60 mb-2">Enter your birth details to generate your chart</p>
+            <div className="space-y-4 max-w-md mx-auto">
+              <input
+                type="date"
+                placeholder="Birth Date"
+                className="w-full px-4 py-3 bg-black/50 border border-[#E4B77D]/30 rounded-lg text-white focus:outline-none focus:border-[#E4B77D] focus:ring-2 focus:ring-[#E4B77D]/20"
+              />
+              <input
+                type="time"
+                placeholder="Birth Time"
+                className="w-full px-4 py-3 bg-black/50 border border-[#E4B77D]/30 rounded-lg text-white focus:outline-none focus:border-[#E4B77D] focus:ring-2 focus:ring-[#E4B77D]/20"
+              />
+              <input
+                type="text"
+                placeholder="Birth Location"
+                className="w-full px-4 py-3 bg-black/50 border border-[#E4B77D]/30 rounded-lg text-white placeholder-[#E4B77D]/50 focus:outline-none focus:border-[#E4B77D] focus:ring-2 focus:ring-[#E4B77D]/20"
+              />
+              <button className="w-full px-6 py-3 border border-[#E4B77D] text-[#E4B77D] rounded-lg hover:bg-[#E4B77D]/10 transition-colors">
+                Generate Chart
+              </button>
+            </div>
+          </div>
+        </div>
+        
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="border border-[#E4B77D]/30 rounded-lg p-4 bg-black/50 backdrop-blur-sm text-center">
+            <Sun className="w-8 h-8 text-[#E4B77D] mx-auto mb-2" />
+            <Gold acceleration={1} rendering={true} noFill={false} edgeThickness={1} spread={0.5}>
+              <p className="font-medium text-white">Sun Sign</p>
+            </Gold>
+            <p className="text-white/60 text-sm">-</p>
+          </div>
+          <div className="border border-[#E4B77D]/30 rounded-lg p-4 bg-black/50 backdrop-blur-sm text-center">
+            <Moon className="w-8 h-8 text-[#E4B77D] mx-auto mb-2" />
+            <Gold acceleration={1} rendering={true} noFill={false} edgeThickness={1} spread={0.5}>
+              <p className="font-medium text-white">Moon Sign</p>
+            </Gold>
+            <p className="text-white/60 text-sm">-</p>
+          </div>
+          <div className="border border-[#E4B77D]/30 rounded-lg p-4 bg-black/50 backdrop-blur-sm text-center">
+            <Star className="w-8 h-8 text-[#E4B77D] mx-auto mb-2" />
+            <Gold acceleration={1} rendering={true} noFill={false} edgeThickness={1} spread={0.5}>
+              <p className="font-medium text-white">Rising Sign</p>
+            </Gold>
+            <p className="text-white/60 text-sm">-</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+'use client';
+
+import React from 'react';
+import { useRouter } from 'next/navigation';
+import { Gold } from 'gleamy';
+import { ArrowLeft, Send, Heart, MessageCircle } from 'lucide-react';
+
+export default function FeedPage() {
+  const router = useRouter();
+
+  return (
+    <div className="min-h-screen bg-black text-white">
+      <div className="absolute top-4 left-4 z-10">
+        <button
+          onClick={() => router.push('/')}
+          className="p-2 rounded-full border border-[#E4B77D] text-[#E4B77D] hover:bg-[#E4B77D]/10 transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+      </div>
+      
+      <div className="max-w-2xl mx-auto pt-20 px-4 pb-8">
+        <Gold acceleration={1} rendering={true} noFill={false} edgeThickness={1} spread={0.5}>
+          <h1 className="text-3xl font-bold text-white mb-8 text-center">Feed</h1>
+        </Gold>
+        
+        <div className="space-y-6">
+          {/* Sample post */}
+          <div className="border border-[#E4B77D]/30 rounded-lg p-6 bg-black/50 backdrop-blur-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full border-2 border-[#E4B77D]"></div>
+              <div>
+                <Gold acceleration={1} rendering={true} noFill={false} edgeThickness={1} spread={0.5}>
+                  <p className="font-medium text-white">User Name</p>
+                </Gold>
+                <p className="text-[#E4B77D]/60 text-sm">2 hours ago</p>
+              </div>
+            </div>
+            <p className="text-white mb-4">
+              Just manifested my dream job! The universe is truly amazing ✨
+            </p>
+            <div className="flex items-center gap-4 text-[#E4B77D]">
+              <button className="flex items-center gap-2 hover:text-[#FFE5B4] transition-colors">
+                <Heart className="w-5 h-5" />
+                <span>24</span>
+              </button>
+              <button className="flex items-center gap-2 hover:text-[#FFE5B4] transition-colors">
+                <MessageCircle className="w-5 h-5" />
+                <span>5</span>
+              </button>
+              <button className="flex items-center gap-2 hover:text-[#FFE5B4] transition-colors">
+                <Send className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+'use client';
+
+import React from 'react';
+import { useRouter } from 'next/navigation';
+import { Gold } from 'gleamy';
+import { ArrowLeft, UserPlus, Search } from 'lucide-react';
+
+export default function FriendsPage() {
+  const router = useRouter();
+
+  return (
+    <div className="min-h-screen bg-black text-white">
+      <div className="absolute top-4 left-4 z-10">
+        <button
+          onClick={() => router.push('/')}
+          className="p-2 rounded-full border border-[#E4B77D] text-[#E4B77D] hover:bg-[#E4B77D]/10 transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+      </div>
+      
+      <div className="max-w-2xl mx-auto pt-20 px-4 pb-8">
+        <Gold acceleration={1} rendering={true} noFill={false} edgeThickness={1} spread={0.5}>
+          <h1 className="text-3xl font-bold text-white mb-8 text-center flex items-center justify-center gap-3">
+            <UserPlus className="w-8 h-8 text-[#E4B77D]" />
+            Friends
+          </h1>
+        </Gold>
+        
+        <div className="mb-6">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-[#E4B77D]" />
+            <input
+              type="text"
+              placeholder="Search friends..."
+              className="w-full pl-10 pr-4 py-3 bg-black/50 border border-[#E4B77D]/30 rounded-lg text-white placeholder-[#E4B77D]/50 focus:outline-none focus:border-[#E4B77D] focus:ring-2 focus:ring-[#E4B77D]/20"
+            />
+          </div>
+        </div>
+        
+        <div className="space-y-4">
+          {/* Sample friend */}
+          <div className="flex items-center justify-between p-4 border border-[#E4B77D]/30 rounded-lg bg-black/50 backdrop-blur-sm">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full border-2 border-[#E4B77D]"></div>
+              <div>
+                <Gold acceleration={1} rendering={true} noFill={false} edgeThickness={1} spread={0.5}>
+                  <p className="font-medium text-white">Friend Name</p>
+                </Gold>
+                <p className="text-[#E4B77D]/60 text-sm">Active now</p>
+              </div>
+            </div>
+            <button className="px-4 py-2 border border-[#E4B77D] text-[#E4B77D] rounded-lg hover:bg-[#E4B77D]/10 transition-colors">
+              View Profile
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+'use client';
+
+import React from 'react';
+import { useRouter } from 'next/navigation';
+import { Gold } from 'gleamy';
+import { ArrowLeft, BookOpen, Sparkles } from 'lucide-react';
+
+export default function InspirationsPage() {
+  const router = useRouter();
+
+  const inspirations = [
+    {
+      title: "The Power of Intention",
+      content: "When you set a clear intention, the universe aligns to support your vision.",
+      icon: Sparkles,
+    },
+    {
+      title: "Daily Gratitude",
+      content: "Gratitude transforms what we have into enough, and opens the door for more.",
+      icon: Sparkles,
+    },
+    {
+      title: "Visualization Mastery",
+      content: "See it, feel it, believe it. Your mind creates your reality.",
+      icon: Sparkles,
+    },
+  ];
+
+  return (
+    <div className="min-h-screen bg-black text-white">
+      <div className="absolute top-4 left-4 z-10">
+        <button
+          onClick={() => router.push('/')}
+          className="p-2 rounded-full border border-[#E4B77D] text-[#E4B77D] hover:bg-[#E4B77D]/10 transition-colors"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+      </div>
+      
+      <div className="max-w-3xl mx-auto pt-20 px-4 pb-8">
+        <Gold acceleration={1} rendering={true} noFill={false} edgeThickness={1} spread={0.5}>
+          <h1 className="text-3xl font-bold text-white mb-8 text-center flex items-center justify-center gap-3">
+            <BookOpen className="w-8 h-8 text-[#E4B77D]" />
+            Inspirations
+          </h1>
+        </Gold>
+        
+        <div className="grid gap-6 md:grid-cols-2">
+          {inspirations.map((inspiration, index) => {
+            const Icon = inspiration.icon;
+            return (
+              <div
+                key={index}
+                className="border border-[#E4B77D]/30 rounded-lg p-6 bg-black/50 backdrop-blur-sm hover:border-[#E4B77D]/50 transition-colors"
+              >
+                <Icon className="w-8 h-8 text-[#E4B77D] mb-4" />
+                <Gold acceleration={1} rendering={true} noFill={false} edgeThickness={1} spread={0.5}>
+                  <h3 className="text-xl font-semibold mb-3 text-white">{inspiration.title}</h3>
+                </Gold>
+                <p className="text-white/80">{inspiration.content}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+'use client';
+
+import React from 'react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, Sparkles } from 'lucide-react';
+import Sidebar from '@/components/Sidebar';
+import ChatInterface from '@/components/ChatInterface';
+
+export default function ManifestationsPage() {
+  const router = useRouter();
+
+  return (
+    <div className="flex h-screen bg-black">
+      <Sidebar
+        onSelectProject={(p) => {}}
+        onNewProject={() => {}}
+        refreshTrigger={0}
+      />
+      <div className="flex-1 relative">
+        <div className="absolute top-4 left-4 z-10">
+          <button
+            onClick={() => router.push('/')}
+            className="p-2 rounded-full border border-[#E4B77D] text-[#E4B77D] hover:bg-[#E4B77D]/10 transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+        </div>
+        <ChatInterface 
+          project={null}
+          onBack={() => router.push('/')}
+          onProjectUpdate={() => {}}
+          onProjectCreated={() => {}}
+          onProjectDeleted={() => {}}
+        />
+      </div>
+    </div>
+  );
+}
+
+

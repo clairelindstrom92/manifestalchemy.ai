@@ -36,9 +36,9 @@ const AnimatedStarBackground = () => {
         top: seededRandom(seed + 1) * 100,
         width: seededRandom(seed + 2) * 3 + 1,
         height: seededRandom(seed + 3) * 3 + 1,
-        backgroundColor: seededRandom(seed + 4) > 0.5 ? '#FFD700' : '#FFA500',
-        animationDelay: seededRandom(seed + 5) * 3,
-        animationDuration: seededRandom(seed + 6) * 2 + 1,
+        backgroundColor: seededRandom(seed + 4) > 0.5 ? '#E4B77D' : '#D4A574',
+        animationDelay: Math.max(0, seededRandom(seed + 5) * 3),
+        animationDuration: Math.max(0.1, seededRandom(seed + 6) * 2 + 1),
         opacity: seededRandom(seed + 7) * 0.8 + 0.2,
         animationType: seededRandom(seed + 8) > 0.7 ? 'animate-ping' : seededRandom(seed + 9) > 0.5 ? 'animate-bounce' : 'animate-pulse'
       });
@@ -53,9 +53,9 @@ const AnimatedStarBackground = () => {
         top: seededRandom(seed + 1) * 100,
         width: seededRandom(seed + 2) * 2 + 1,
         height: seededRandom(seed + 3) * 2 + 1,
-        backgroundColor: seededRandom(seed + 4) > 0.5 ? '#FFD700' : '#FFA500',
-        animationDelay: seededRandom(seed + 5) * 8,
-        animationDuration: seededRandom(seed + 6) * 4 + 6,
+        backgroundColor: seededRandom(seed + 4) > 0.5 ? '#E4B77D' : '#D4A574',
+        animationDelay: Math.max(0, seededRandom(seed + 5) * 8),
+        animationDuration: Math.max(0.1, seededRandom(seed + 6) * 4 + 6),
         opacity: seededRandom(seed + 7) * 0.6 + 0.3,
         animationType: 'falling-star'
       });

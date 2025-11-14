@@ -3,9 +3,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { Send, Loader2, Trash2, ArrowLeft, LogOut } from 'lucide-react';
+import { Send, Loader2, Trash2, ArrowLeft, LogOut, Image as ImageIcon, X } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useSupabaseUser } from '@/hooks/useSupabaseUser';
+import { useToast } from '@/components/shared/Toast';
 
 // 🪄 Markdown renderer for formatted AI responses
 import ReactMarkdown from 'react-markdown';
@@ -17,13 +18,23 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  imageUrl?: string;
 }
 
 interface ProjectData {
   id?: string;
   title?: string;
   messages?: string;
+  content?: string;
   updated_at?: string;
+  manifestation_id?: string | null;
+}
+
+interface MicroTask {
+  id: string;
+  title: string;
+  description?: string;
+  completed?: boolean;
 }
 
 interface ChatInterfaceProps {
@@ -32,15 +43,43 @@ interface ChatInterfaceProps {
   onProjectUpdate?: () => void;
   onProjectCreated?: (project: ProjectData) => void;
   onProjectDeleted?: () => void;
+  manifestationId?: string; // Optional: link chat to a manifestation
 }
 
-export default function ChatInterface({ onBack, project, onProjectUpdate, onProjectCreated, onProjectDeleted }: ChatInterfaceProps) {
+interface IntentPayload {
+  title: string | null;
+  summary?: string | null;
+  confidence?: number | null;
+  reason?: string | null;
+  microTasks?: MicroTask[];
+  imagePrompts?: string[];
+  gallery?: string[];
+}
+
+const INTENT_CONFIDENCE_THRESHOLD = 0.7;
+const normalizeMicroTasks = (tasks?: MicroTask[]): MicroTask[] => {
+  if (!tasks || !Array.isArray(tasks)) return [];
+  return tasks.map((task, index) => ({
+    id: task.id || `task-${Date.now()}-${index}`,
+    title: task.title || `Task ${index + 1}`,
+    description: task.description || '',
+    completed: Boolean(task.completed),
+  }));
+};
+
+export default function ChatInterface({ onBack, project, onProjectUpdate, onProjectCreated, onProjectDeleted, manifestationId }: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const currentProjectIdRef = useRef<string | null>(null);
+  const currentManifestationIdRef = useRef<string | null>(project?.manifestation_id || null);
   const { user } = useSupabaseUser();
   const router = useRouter();
+  const { showError, showSuccess } = useToast();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -48,14 +87,24 @@ export default function ChatInterface({ onBack, project, onProjectUpdate, onProj
   };
 
   useEffect(() => {
-    if (project?.messages) {
+    // Support both old (messages) and new (content) schema
+    const contentToParse = project?.content || project?.messages;
+    if (contentToParse) {
       try {
-        const parsedMessages = JSON.parse(project.messages);
+        const parsedMessages = JSON.parse(contentToParse);
         setMessages(parsedMessages);
       } catch (error) {
-        console.error('Error parsing project messages:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Error parsing project messages:', error);
+        }
+        setMessages([]);
       }
+    } else {
+      setMessages([]);
     }
+    // Update ref when project changes
+    currentProjectIdRef.current = project?.id || null;
+    currentManifestationIdRef.current = project?.manifestation_id || null;
   }, [project]);
 
   const scrollToBottom = () => {
@@ -66,19 +115,190 @@ export default function ChatInterface({ onBack, project, onProjectUpdate, onProj
     scrollToBottom();
   }, [messages]);
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+        showError('Image size must be less than 10MB');
+        return;
+      }
+      if (!file.type.startsWith('image/')) {
+        showError('Please select an image file');
+        return;
+      }
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const deriveInitialTitle = (content?: string) => {
+    if (!content) return null;
+    const cleaned = content.replace(/\[Image\]/g, '').trim();
+    const wordCount = cleaned.split(/\s+/).filter(Boolean).length;
+    if (cleaned.length < 20 || wordCount < 3) {
+      return null;
+    }
+    const shortTitle = cleaned.slice(0, 80);
+    return shortTitle.length > 60 ? `${shortTitle.substring(0, 57)}...` : shortTitle;
+  };
+
+  const ensureManifestation = async (postId?: string | null) => {
+    if (!user) return null;
+
+    if (!currentManifestationIdRef.current && postId) {
+      const { data: existing } = await supabase
+        .from('manifestations')
+        .select('id')
+        .eq('chat_post_id', postId)
+        .maybeSingle();
+      if (existing?.id) {
+        currentManifestationIdRef.current = existing.id;
+        return existing.id;
+      }
+    }
+
+    if (currentManifestationIdRef.current) {
+      if (postId) {
+        await supabase
+          .from('posts')
+          .update({ manifestation_id: currentManifestationIdRef.current })
+          .eq('id', postId);
+      }
+      return currentManifestationIdRef.current;
+    }
+
+    const payload: Record<string, unknown> = {
+      author_id: user.id,
+      status: 'draft',
+      needs_title: true
+    };
+
+    if (postId) {
+      payload.chat_post_id = postId;
+    }
+
+    const { data, error } = await supabase
+      .from('manifestations')
+      .insert(payload)
+      .select('id')
+      .single();
+
+    if (error) {
+      showError(`Failed to start manifestation: ${error.message}`);
+      return null;
+    }
+
+    currentManifestationIdRef.current = data?.id || null;
+
+    if (postId && currentManifestationIdRef.current) {
+      await supabase
+        .from('posts')
+        .update({ manifestation_id: currentManifestationIdRef.current })
+        .eq('id', postId);
+    }
+
+    return currentManifestationIdRef.current;
+  };
+
+  const maybeFinalizeManifestation = async (intent?: IntentPayload) => {
+    if (!intent || !intent.title || !intent.confidence) return;
+    if (intent.confidence < INTENT_CONFIDENCE_THRESHOLD) return;
+
+    const normalizedTasks = normalizeMicroTasks(intent.microTasks);
+
+    const manifestationId = await ensureManifestation(currentProjectIdRef.current);
+    if (!manifestationId) return;
+
+    await supabase
+      .from('manifestations')
+      .update({
+        title: intent.title,
+        summary: intent.summary ?? null,
+        confidence: intent.confidence,
+        needs_title: false,
+        status: 'active',
+        intent: {
+          ...intent,
+          microTasks: normalizedTasks,
+        },
+        chat_post_id: currentProjectIdRef.current,
+      })
+      .eq('id', manifestationId);
+
+    if (currentProjectIdRef.current) {
+      await supabase
+        .from('posts')
+        .update({
+          title: intent.title,
+          manifestation_id: manifestationId,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', currentProjectIdRef.current);
+    }
+  };
+
+  const uploadImageToSupabase = async (file: File): Promise<string | null> => {
+    if (!user) return null;
+    
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      const { data, error } = await supabase.storage
+        .from('chat-images')
+        .upload(fileName, file);
+
+      if (error) throw error;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('chat-images')
+        .getPublicUrl(data.path);
+
+      return publicUrl;
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Error uploading image:', error);
+      }
+      showError('Failed to upload image');
+      return null;
+    }
+  };
+
   const sendMessage = async () => {
-    if (!input.trim() || isLoading) return;
+    if ((!input.trim() && !selectedImage) || isLoading) return;
+
+    let imageUrl: string | null = null;
+    if (selectedImage) {
+      imageUrl = await uploadImageToSupabase(selectedImage);
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim(),
-      timestamp: new Date()
+      content: input.trim() || (imageUrl ? '[Image]' : ''),
+      timestamp: new Date(),
+      imageUrl: imageUrl || undefined
     };
 
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
     setInput('');
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
     setIsLoading(true);
 
     try {
@@ -91,12 +311,19 @@ export default function ChatInterface({ onBack, project, onProjectUpdate, onProj
           messages: updatedMessages.map(msg => ({
             role: msg.role,
             content: msg.content
-          }))
+          })),
+          imageUrl: imageUrl
         }),
       });
 
+      // Check if response is actually JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        throw new Error(`API returned non-JSON response: ${text.substring(0, 200)}`);
+      }
+
       const data = await response.json();
-      console.log('Received data from API:', data);
 
       if (!response.ok) {
         throw new Error(data.message || data.error || 'Failed to get response');
@@ -112,23 +339,31 @@ export default function ChatInterface({ onBack, project, onProjectUpdate, onProj
         timestamp: new Date()
       };
 
-      console.log('Adding assistant message:', assistantMessage);
       const finalMessages = [...updatedMessages, assistantMessage];
       setMessages(finalMessages);
       
       // Save to Supabase
-      await saveMessages(finalMessages);
-      
-      // Trigger sidebar refresh
-      if (onProjectUpdate) {
-        onProjectUpdate();
+      try {
+        await saveMessages(finalMessages);
+        if (data.intent) {
+          await maybeFinalizeManifestation(data.intent as IntentPayload);
+        }
+        // Trigger sidebar refresh
+        if (onProjectUpdate) {
+          onProjectUpdate();
+        }
+      } catch (saveError) {
+        const errorMsg = saveError instanceof Error ? saveError.message : 'Unknown error';
+        showError(`Failed to save manifestation: ${errorMsg}`);
+        // Don't block the UI, but show error to user
       }
     } catch (error) {
-      console.error('Error sending message:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error occurred';
+      showError(errorMsg);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `Error: ${error instanceof Error ? error.message : 'Unknown error occurred'}`,
+        content: `Error: ${errorMsg}`,
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -143,35 +378,68 @@ export default function ChatInterface({ onBack, project, onProjectUpdate, onProj
       if (!user) return;
 
       const messagesJson = JSON.stringify(updatedMessages);
-      const title = updatedMessages[0]?.content?.substring(0, 50) || 'New Manifestation';
+      const firstUserMessage = updatedMessages.find(msg => msg.role === 'user');
+      const derivedTitle = deriveInitialTitle(firstUserMessage?.content || '');
 
-      if (project?.id) {
-        // Update existing project
-        await supabase
-          .from('manifestations')
+      const projectId = currentProjectIdRef.current || project?.id;
+
+      if (projectId) {
+        const { error } = await supabase
+          .from('posts')
           .update({
-            messages: messagesJson,
+            content: messagesJson,
             updated_at: new Date().toISOString()
           })
-          .eq('id', project.id);
+          .eq('id', projectId);
+        
+        if (error) throw error;
+        await ensureManifestation(projectId);
       } else {
-        // Create new project
-        const { data } = await supabase
-          .from('manifestations')
-          .insert({
-            user_id: user.id,
-            title: title,
-            messages: messagesJson
-          })
+        const insertData: Record<string, unknown> = {
+          author_id: user.id,
+          title: derivedTitle ?? 'Manifestation in progress',
+          content: messagesJson,
+          is_public: false
+        };
+
+        if (manifestationId) {
+          insertData.manifestation_id = manifestationId;
+        }
+
+        const { data, error } = await supabase
+          .from('posts')
+          .insert(insertData)
           .select()
           .single();
         
-        if (data && onProjectCreated) {
-          onProjectCreated(data);
+        if (error) throw error;
+        
+        if (data) {
+          currentProjectIdRef.current = data.id;
+          await ensureManifestation(data.id);
+
+          const payloadForParent = {
+            ...data,
+            manifestation_id: currentManifestationIdRef.current
+          };
+
+          if (currentManifestationIdRef.current && !data.manifestation_id) {
+            await supabase
+              .from('posts')
+              .update({ manifestation_id: currentManifestationIdRef.current })
+              .eq('id', data.id);
+          }
+
+          if (onProjectCreated) {
+            onProjectCreated(payloadForParent);
+          }
+          showSuccess('Chat saved successfully');
         }
       }
     } catch (error) {
-      console.error('Error saving messages:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Failed to save manifestation';
+      showError(errorMsg);
+      throw error;
     }
   };
 
@@ -195,15 +463,14 @@ export default function ChatInterface({ onBack, project, onProjectUpdate, onProj
       }
 
       const { data, error } = await supabase
-        .from('manifestations')
+        .from('posts')
         .delete()
         .eq('id', project.id)
-        .eq('user_id', user.id) // Ensure we're deleting our own chat
+        .eq('author_id', user.id) // Ensure we're deleting our own chat
         .select();
 
       if (error) {
-        console.error('Delete error:', error);
-        alert(`Failed to delete chat: ${error.message}`);
+        showError(`Failed to delete chat: ${error.message}`);
         return;
       }
 
@@ -226,15 +493,14 @@ export default function ChatInterface({ onBack, project, onProjectUpdate, onProj
       }, 100);
       
     } catch (error) {
-      console.error('Error deleting chat:', error);
-      alert(`Failed to delete chat: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      showError(`Failed to delete chat: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
   return (
     <div className="min-h-screen bg-[#0a0a0f] flex flex-col">
       {/* Header */}
-      <div className="bg-[#151520] border-b border-[#2a2a3a] px-6 py-4">
+      <div className="bg-[#151520] border-b border-[#2a2a3a] px-3 sm:px-6 py-3 sm:py-4">
         <div className="flex items-center justify-between max-w-6xl mx-auto">
           <div className="flex items-center gap-4">
             {onBack && (
@@ -246,7 +512,7 @@ export default function ChatInterface({ onBack, project, onProjectUpdate, onProj
                 <ArrowLeft size={20} />
               </button>
             )}
-            <h1 className="text-xl font-semibold text-[#f5f5f7]">
+            <h1 className="text-base sm:text-xl font-semibold text-[#f5f5f7]">
               Manifest Alchemy AI
             </h1>
           </div>
@@ -254,12 +520,22 @@ export default function ChatInterface({ onBack, project, onProjectUpdate, onProj
             {user && (
               <button
                 onClick={handleLogout}
-                className="relative bg-gradient-to-r from-indigo-500/20 via-blue-500/25 to-indigo-500/20 hover:from-indigo-500/30 hover:via-blue-500/35 hover:to-indigo-500/30 border border-indigo-400/30 hover:border-indigo-400/40 transition-all duration-500 backdrop-blur-sm overflow-hidden p-2 rounded-full flex items-center gap-2 text-xs font-medium text-[#f5f5f7]"
+                className="relative transition-all duration-500 backdrop-blur-sm overflow-hidden p-2 rounded-full flex items-center gap-2 text-xs font-medium text-[#f5f5f7] gold-shiny"
                 style={{
-                  textShadow: '0 0 10px rgba(99, 102, 241, 0.5), 0 0 20px rgba(99, 102, 241, 0.3)',
+                  background: 'linear-gradient(to right, rgba(228, 183, 125, 0.2), rgba(228, 183, 125, 0.25), rgba(228, 183, 125, 0.2))',
+                  border: '1px solid rgba(228, 183, 125, 0.3)',
+                  textShadow: '0 0 10px rgba(228, 183, 125, 0.7), 0 0 20px rgba(228, 183, 125, 0.5), 0 0 30px rgba(228, 183, 125, 0.3)',
                   fontFamily: "'Quicksand', 'Poppins', sans-serif",
                   letterSpacing: '0.1em',
                   textTransform: 'uppercase'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'linear-gradient(to right, rgba(228, 183, 125, 0.3), rgba(228, 183, 125, 0.35), rgba(228, 183, 125, 0.3))';
+                  e.currentTarget.style.borderColor = 'rgba(228, 183, 125, 0.4)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'linear-gradient(to right, rgba(228, 183, 125, 0.2), rgba(228, 183, 125, 0.25), rgba(228, 183, 125, 0.2))';
+                  e.currentTarget.style.borderColor = 'rgba(228, 183, 125, 0.3)';
                 }}
                 aria-label="Logout"
               >
@@ -283,7 +559,7 @@ export default function ChatInterface({ onBack, project, onProjectUpdate, onProj
       </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6 max-w-4xl mx-auto w-full">
+        <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6 max-w-4xl mx-auto w-full">
           {messages.length === 0 && (
             <div className="text-center text-[#a1a1aa] mt-20">
               <h2 className="text-2xl font-semibold text-[#f5f5f7] mb-2">Welcome to Manifest Alchemy AI</h2>
@@ -299,50 +575,73 @@ export default function ChatInterface({ onBack, project, onProjectUpdate, onProj
               className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[80%] lg:max-w-2xl px-4 py-3 rounded-full relative overflow-hidden ${
+                className={`max-w-[90%] sm:max-w-[80%] lg:max-w-2xl px-3 sm:px-4 py-2 sm:py-3 rounded-3xl relative overflow-hidden ${
                   message.role === 'user'
-                    ? 'bg-gradient-to-r from-indigo-500/20 via-blue-500/25 to-indigo-500/20 border border-indigo-400/30 text-[#f5f5f7] backdrop-blur-sm'
-                    : 'bg-[#151520] text-[#f5f5f7] border border-[#2a2a3a] rounded-2xl'
+                    ? 'border text-[#f5f5f7] backdrop-blur-sm gold-shiny'
+                    : 'bg-[#151520] text-[#f5f5f7] border border-[#2a2a3a]'
                 }`}
+                style={message.role === 'user'
+                  ? {
+                      background:
+                        'linear-gradient(to right, rgba(228, 183, 125, 0.2), rgba(228, 183, 125, 0.25), rgba(228, 183, 125, 0.2))',
+                      borderColor: 'rgba(228, 183, 125, 0.3)',
+                    }
+                  : {}}
               >
                 {message.role === 'user' && (
                   <>
                     {/* Sparkle particles */}
                     <div className="absolute inset-0 pointer-events-none">
-                      <div className="absolute top-2 left-4 w-1 h-1 bg-indigo-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s', animationDuration: '2s' }}></div>
-                      <div className="absolute top-3 right-6 w-1 h-1 bg-blue-200 rounded-full animate-ping opacity-70" style={{ animationDelay: '0.5s', animationDuration: '2.5s' }}></div>
-                      <div className="absolute bottom-2 left-8 w-1 h-1 bg-indigo-400 rounded-full animate-ping opacity-50" style={{ animationDelay: '1s', animationDuration: '3s' }}></div>
-                      <div className="absolute bottom-3 right-4 w-1 h-1 bg-blue-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '1.5s', animationDuration: '2.2s' }}></div>
+                      <div className="absolute top-2 left-4 w-1 h-1 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s', animationDuration: '2s', backgroundColor: '#E4B77D', boxShadow: '0 0 6px rgba(228, 183, 125, 0.8)' }}></div>
+                      <div className="absolute top-3 right-6 w-1 h-1 rounded-full animate-ping opacity-70" style={{ animationDelay: '0.5s', animationDuration: '2.5s', backgroundColor: '#F0C896', boxShadow: '0 0 6px rgba(240, 200, 150, 0.8)' }}></div>
+                      <div className="absolute bottom-2 left-8 w-1 h-1 rounded-full animate-ping opacity-50" style={{ animationDelay: '1s', animationDuration: '3s', backgroundColor: '#E4B77D', boxShadow: '0 0 6px rgba(228, 183, 125, 0.8)' }}></div>
+                      <div className="absolute bottom-3 right-4 w-1 h-1 rounded-full animate-ping opacity-60" style={{ animationDelay: '1.5s', animationDuration: '2.2s', backgroundColor: '#F0C896', boxShadow: '0 0 6px rgba(240, 200, 150, 0.8)' }}></div>
                     </div>
                     {/* Shimmer effect */}
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-shimmer"></div>
                   </>
                 )}
-                <div className={`prose prose-invert max-w-none text-[15px] leading-relaxed relative z-10 ${message.role === 'user' ? 'text-[#f5f5f7]' : 'text-[#f5f5f7]'}`}>
+                <div
+                  className={`prose prose-invert max-w-none text-[15px] leading-relaxed relative z-10 break-words whitespace-pre-wrap ${
+                    message.role === 'user' ? 'text-white' : 'text-white'
+                  }`}
+                  style={{ wordBreak: 'break-word' }}
+                >
+                  {message.imageUrl && (
+                    <div className="mb-2">
+                      <img 
+                        src={message.imageUrl} 
+                        alt="Uploaded" 
+                        className="max-w-full h-auto rounded-lg"
+                        style={{ maxHeight: '300px' }}
+                      />
+                    </div>
+                  )}
                   {message.role === 'user' ? (
-                    <p className="mb-0" style={{
-                      textShadow: '0 0 10px rgba(99, 102, 241, 0.5), 0 0 20px rgba(99, 102, 241, 0.3)'
-                    }}>{message.content}</p>
+                    <p className="mb-0 text-white" style={{
+                      color: '#FFFFFF',
+                      textShadow: '0 0 10px rgba(228, 183, 125, 0.5), 0 0 20px rgba(228, 183, 125, 0.3)'
+                    }}>{message.content && message.content !== '[Image]' ? message.content : ''}</p>
                   ) : (
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
                       components={{
-                        p: ({ children }) => <p className="mb-3 last:mb-0 text-[#f5f5f7]">{children}</p>,
+                        p: ({ children }) => <p className="mb-3 last:mb-0 text-white" style={{ color: '#FFFFFF' }}>{children}</p>,
                         strong: ({ children }) => (
-                          <strong className="font-semibold text-[#a5b4fc]">{children}</strong>
+                          <strong className="font-semibold text-[#E4B77D]" style={{ color: '#E4B77D' }}>{children}</strong>
                         ),
                         em: ({ children }) => (
-                          <em className="italic text-[#d1d5db]">{children}</em>
+                          <em className="italic text-white" style={{ color: '#FFFFFF' }}>{children}</em>
                         ),
                         code: ({ children }) => (
-                          <code className="bg-[#1f1f2e] text-[#a5b4fc] px-2 py-1 rounded text-sm font-mono">{children}</code>
+                          <code className="bg-[#1f1f2e] text-[#E4B77D] px-2 py-1 rounded text-sm font-mono gold-shiny">{children}</code>
                         ),
-                        ul: ({ children }) => <ul className="list-disc list-inside mb-3 space-y-1 text-[#f5f5f7]">{children}</ul>,
-                        ol: ({ children }) => <ol className="list-decimal list-inside mb-3 space-y-1 text-[#f5f5f7]">{children}</ol>,
-                        li: ({ children }) => <li className="text-[#f5f5f7]">{children}</li>,
-                        h1: ({ children }) => <h1 className="text-xl font-bold mb-2 text-[#f5f5f7]">{children}</h1>,
-                        h2: ({ children }) => <h2 className="text-lg font-semibold mb-2 text-[#f5f5f7]">{children}</h2>,
-                        h3: ({ children }) => <h3 className="text-base font-semibold mb-2 text-[#f5f5f7]">{children}</h3>,
+                        ul: ({ children }) => <ul className="list-disc list-inside mb-3 space-y-1 text-white" style={{ color: '#FFFFFF' }}>{children}</ul>,
+                        ol: ({ children }) => <ol className="list-decimal list-inside mb-3 space-y-1 text-white" style={{ color: '#FFFFFF' }}>{children}</ol>,
+                        li: ({ children }) => <li className="text-white" style={{ color: '#FFFFFF' }}>{children}</li>,
+                        h1: ({ children }) => <h1 className="text-xl font-bold mb-2 text-white" style={{ color: '#FFFFFF' }}>{children}</h1>,
+                        h2: ({ children }) => <h2 className="text-lg font-semibold mb-2 text-white" style={{ color: '#FFFFFF' }}>{children}</h2>,
+                        h3: ({ children }) => <h3 className="text-base font-semibold mb-2 text-white" style={{ color: '#FFFFFF' }}>{children}</h3>,
                       }}
                     >
                       {message.content}
@@ -361,7 +660,7 @@ export default function ChatInterface({ onBack, project, onProjectUpdate, onProj
             >
               <div className="bg-[#151520] text-[#f5f5f7] border border-[#2a2a3a] px-4 py-3 rounded-2xl">
                 <div className="flex items-center space-x-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-[#6366f1]" />
+                  <Loader2 className="w-4 h-4 animate-spin text-[#E4B77D] gold-shiny" />
                   <span className="text-sm text-[#a1a1aa]">Thinking...</span>
                 </div>
               </div>
@@ -372,9 +671,40 @@ export default function ChatInterface({ onBack, project, onProjectUpdate, onProj
         </div>
 
         {/* Input */}
-        <div className="bg-[#151520] border-t border-[#2a2a3a] px-4 py-4">
+        <div className="bg-[#151520] border-t border-[#2a2a3a] px-3 sm:px-4 py-3 sm:py-4">
           <div className="max-w-4xl mx-auto">
-            <div className="flex gap-3">
+            {imagePreview && (
+              <div className="mb-3 relative inline-block">
+                <img 
+                  src={imagePreview} 
+                  alt="Preview" 
+                  className="max-w-[200px] h-auto rounded-lg border border-[#E4B77D]/30"
+                />
+                <button
+                  onClick={removeImage}
+                  className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white hover:bg-red-600 transition-colors"
+                  aria-label="Remove image"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+            <div className="flex items-center gap-2 sm:gap-3">
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageSelect}
+                accept="image/*"
+                className="hidden"
+                id="image-upload"
+              />
+              <label
+                htmlFor="image-upload"
+                className="p-2 sm:p-3 rounded-full border border-[#E4B77D]/30 text-[#E4B77D] hover:bg-[#E4B77D]/10 transition-colors cursor-pointer gold-shiny flex items-center justify-center"
+                aria-label="Upload image"
+              >
+                <ImageIcon className="w-5 h-5" />
+              </label>
               <input
                 type="text"
                 value={input}
@@ -387,22 +717,40 @@ export default function ChatInterface({ onBack, project, onProjectUpdate, onProj
                 }}
                 disabled={isLoading}
                 placeholder="Type your message..."
-                className="flex-1 bg-[#1f1f2e] border border-[#2a2a3a] rounded-xl px-4 py-3 text-[#f5f5f7] placeholder-[#71717a] focus:outline-none focus:border-[#6366f1] focus:ring-2 focus:ring-[#6366f1]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 bg-[#1f1f2e] border border-[#2a2a3a] rounded-xl px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base text-white placeholder-[#71717a] focus:outline-none focus:border-[#E4B77D] focus:ring-2 focus:ring-[#E4B77D]/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <button
                 onClick={sendMessage}
-                disabled={!input.trim() || isLoading}
-                className="relative bg-gradient-to-r from-indigo-500/20 via-blue-500/25 to-indigo-500/20 hover:from-indigo-500/30 hover:via-blue-500/35 hover:to-indigo-500/30 disabled:from-[#2a2a3a] disabled:via-[#2a2a3a] disabled:to-[#2a2a3a] disabled:text-[#71717a] disabled:cursor-not-allowed border border-indigo-400/30 hover:border-indigo-400/40 disabled:border-[#2a2a3a] text-[#f5f5f7] p-3 rounded-full transition-all duration-500 flex items-center justify-center min-w-[48px] backdrop-blur-sm overflow-hidden"
-                style={{
-                  textShadow: !isLoading && input.trim() ? '0 0 10px rgba(99, 102, 241, 0.5), 0 0 20px rgba(99, 102, 241, 0.3)' : 'none'
+                disabled={(!input.trim() && !selectedImage) || isLoading}
+                className="relative disabled:from-[#2a2a3a] disabled:via-[#2a2a3a] disabled:to-[#2a2a3a] disabled:text-[#71717a] disabled:cursor-not-allowed disabled:border-[#2a2a3a] text-white p-3 rounded-full transition-all duration-500 flex items-center justify-center min-w-[48px] backdrop-blur-sm overflow-hidden gold-shiny"
+                style={!isLoading && (input.trim() || selectedImage) ? {
+                  background: 'linear-gradient(to right, rgba(228, 183, 125, 0.2), rgba(228, 183, 125, 0.25), rgba(228, 183, 125, 0.2))',
+                  border: '1px solid rgba(228, 183, 125, 0.3)',
+                  textShadow: '0 0 10px rgba(228, 183, 125, 0.7), 0 0 20px rgba(228, 183, 125, 0.5), 0 0 30px rgba(228, 183, 125, 0.3)'
+                } : {
+                  background: 'linear-gradient(to right, #2a2a3a, #2a2a3a, #2a2a3a)',
+                  border: '1px solid #2a2a3a',
+                  textShadow: 'none'
+                }}
+                onMouseEnter={(e) => {
+                  if (!isLoading && (input.trim() || selectedImage)) {
+                    e.currentTarget.style.background = 'linear-gradient(to right, rgba(228, 183, 125, 0.3), rgba(228, 183, 125, 0.35), rgba(228, 183, 125, 0.3))';
+                    e.currentTarget.style.borderColor = 'rgba(228, 183, 125, 0.4)';
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!isLoading && (input.trim() || selectedImage)) {
+                    e.currentTarget.style.background = 'linear-gradient(to right, rgba(228, 183, 125, 0.2), rgba(228, 183, 125, 0.25), rgba(228, 183, 125, 0.2))';
+                    e.currentTarget.style.borderColor = 'rgba(228, 183, 125, 0.3)';
+                  }
                 }}
                 aria-label="Send message"
               >
-                {!isLoading && input.trim() && (
+                {!isLoading && (input.trim() || selectedImage) && (
                   <>
                     <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-shimmer"></div>
-                    <div className="absolute top-1 left-2 w-1 h-1 bg-indigo-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s', animationDuration: '2s' }}></div>
-                    <div className="absolute bottom-1 right-2 w-1 h-1 bg-blue-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '1s', animationDuration: '2.5s' }}></div>
+                    <div className="absolute top-1 left-2 w-1 h-1 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s', animationDuration: '2s', backgroundColor: '#E4B77D', boxShadow: '0 0 6px rgba(228, 183, 125, 0.8)' }}></div>
+                    <div className="absolute bottom-1 right-2 w-1 h-1 rounded-full animate-ping opacity-60" style={{ animationDelay: '1s', animationDuration: '2.5s', backgroundColor: '#F0C896', boxShadow: '0 0 6px rgba(240, 200, 150, 0.8)' }}></div>
                   </>
                 )}
                 <span className="relative z-10">
@@ -414,66 +762,6 @@ export default function ChatInterface({ onBack, project, onProjectUpdate, onProj
                 </span>
               </button>
             </div>
-            
-            {/* Save button section - only show for new projects without an ID */}
-            {messages.length > 0 && !project?.id && (
-              <div className="mt-4 text-center">
-                {user ? (
-                  <button
-                    onClick={async () => {
-                      const { error } = await supabase
-                        .from('manifestations')
-                        .insert([
-                          {
-                            user_id: user.id,
-                            title: messages[0]?.content.slice(0, 60) || "Untitled Manifestation",
-                            messages: JSON.stringify(messages),
-                          },
-                        ]);
-                      if (error) {
-                        console.error(error);
-                        alert("Failed to save manifestation");
-                      } else {
-                        alert("Manifestation saved to your Alchemy Journal!");
-                        if (onProjectUpdate) {
-                          onProjectUpdate();
-                        }
-                      }
-                    }}
-                    className="relative bg-gradient-to-r from-indigo-500/20 via-blue-500/25 to-indigo-500/20 hover:from-indigo-500/30 hover:via-blue-500/35 hover:to-indigo-500/30 border border-indigo-400/30 hover:border-indigo-400/40 text-[#f5f5f7] font-medium px-6 py-2.5 rounded-full transition-all duration-500 backdrop-blur-sm overflow-hidden"
-                    style={{
-                      textShadow: '0 0 10px rgba(99, 102, 241, 0.5), 0 0 20px rgba(99, 102, 241, 0.3)',
-                      fontFamily: "'Quicksand', 'Poppins', sans-serif",
-                      letterSpacing: '0.1em',
-                      textTransform: 'uppercase',
-                      fontSize: '0.75rem'
-                    }}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-shimmer"></div>
-                    <div className="absolute top-1 left-4 w-1 h-1 bg-indigo-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s', animationDuration: '2s' }}></div>
-                    <div className="absolute bottom-1 right-4 w-1 h-1 bg-blue-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '1s', animationDuration: '2.5s' }}></div>
-                    <span className="relative z-10">Save Manifestation</span>
-                  </button>
-                ) : (
-                  <a
-                    href="/login"
-                    className="relative bg-gradient-to-r from-indigo-500/20 via-blue-500/25 to-indigo-500/20 hover:from-indigo-500/30 hover:via-blue-500/35 hover:to-indigo-500/30 border border-indigo-400/30 hover:border-indigo-400/40 text-[#f5f5f7] font-medium px-6 py-2.5 rounded-full transition-all duration-500 backdrop-blur-sm inline-block overflow-hidden"
-                    style={{
-                      textShadow: '0 0 10px rgba(99, 102, 241, 0.5), 0 0 20px rgba(99, 102, 241, 0.3)',
-                      fontFamily: "'Quicksand', 'Poppins', sans-serif",
-                      letterSpacing: '0.1em',
-                      textTransform: 'uppercase',
-                      fontSize: '0.75rem'
-                    }}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-shimmer"></div>
-                    <div className="absolute top-1 left-4 w-1 h-1 bg-indigo-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s', animationDuration: '2s' }}></div>
-                    <div className="absolute bottom-1 right-4 w-1 h-1 bg-blue-300 rounded-full animate-ping opacity-60" style={{ animationDelay: '1s', animationDuration: '2.5s' }}></div>
-                    <span className="relative z-10">Sign in to Save Manifestations</span>
-                  </a>
-                )}
-              </div>
-            )}
           </div>
         </div>
     </div>

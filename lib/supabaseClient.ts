@@ -1,9 +1,11 @@
 import { createBrowserClient } from '@supabase/ssr';
 
-console.log('✅ ENV CHECK:',
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Key Loaded' : 'Key MISSING'
-);
+if (process.env.NODE_ENV === 'development') {
+  console.log('✅ ENV CHECK:',
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Key Loaded' : 'Key MISSING'
+  );
+}
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
