@@ -7,20 +7,39 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const BUCKET = "manifestation-media";
 
-const supabase =
-  supabaseUrl && supabaseServiceKey
-    ? createClient(supabaseUrl, supabaseServiceKey)
-    : null;
+const getSupabaseServerClient = () => {
+  if (!supabaseUrl || !supabaseServiceKey) {
+    return null;
+  }
+  try {
+    return createClient(supabaseUrl, supabaseServiceKey);
+  } catch {
+    return null;
+  }
+};
 
-const openai = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
+const getOpenAIClient = () => {
+  if (!OPENAI_API_KEY) {
+    return null;
+  }
+  try {
+    return new OpenAI({ apiKey: OPENAI_API_KEY });
+  } catch {
+    return null;
+  }
+};
 
 export async function POST(request: NextRequest) {
+  const supabase = getSupabaseServerClient();
+  const openai = getOpenAIClient();
+
   if (!supabase || !openai) {
     return NextResponse.json(
       { error: "Server not configured for image generation" },
       { status: 500 }
     );
   }
+
 
   try {
     const { manifestationId, prompt } = await request.json();

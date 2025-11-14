@@ -25,17 +25,9 @@ if (supabaseUrl && supabaseServiceKey) {
   }
 }
 
-// Check for OpenAI API key
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-if (!OPENAI_API_KEY) {
-  if (process.env.NODE_ENV === 'development') {
-    console.error("OPENAI_API_KEY is not set in environment variables");
-  }
-}
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY as string;
 
-const openaiRaw = OPENAI_API_KEY 
-  ? new OpenAI({ apiKey: OPENAI_API_KEY })
-  : null;
+const openaiRaw = new OpenAI({ apiKey: OPENAI_API_KEY || '' });
 
 // Your existing system prompt (unchanged)
 const systemPrompt = `
@@ -53,7 +45,7 @@ IMPORTANT: Ask only ONE question per response. Do not list multiple questions. H
 // Fetch optional notes from Supabase (gracefully handles failures)
 async function fetchOptionalNotes(question: string) {
   // If Supabase isn't configured or no question, return empty
-  if (!supabase || !question?.trim() || !openaiRaw) {
+  if (!supabase || !question?.trim()) {
     return { text: "", count: 0 };
   }
 
@@ -100,14 +92,6 @@ async function fetchOptionalNotes(question: string) {
 export async function POST(request: NextRequest) {
   // Ensure we always return JSON, even if there's an unexpected error
   try {
-    // Check for OpenAI API key first
-    if (!OPENAI_API_KEY || !openaiRaw) {
-      return NextResponse.json(
-        { error: "OpenAI API key is not configured", message: "Please set OPENAI_API_KEY environment variable" },
-        { status: 500 }
-      );
-    }
-
     let messages;
     try {
       const body = await request.json();
@@ -154,10 +138,6 @@ ${notes.text ? `\n--- Optional notes (may use or ignore) ---\n${notes.text}\n---
 `.trim();
 
 async function extractManifestationIntent(conversation: Array<{ role: string; content: string }>) {
-  if (!openaiRaw) {
-    return null;
-  }
-
   try {
     const recent = conversation
       .slice(-10)
@@ -194,13 +174,6 @@ async function extractManifestationIntent(conversation: Array<{ role: string; co
 }
 
     // Stream the response (unchanged mechanics)
-    if (!OPENAI_API_KEY || !openaiRaw) {
-      return NextResponse.json(
-        { error: "OpenAI API key is not configured", message: "Please set OPENAI_API_KEY environment variable" },
-        { status: 500 }
-      );
-    }
-
     // Stream the response - vercelOpenAI automatically uses OPENAI_API_KEY from env
     const result = await streamText({
       model: vercelOpenAI(CHAT_MODEL),

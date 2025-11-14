@@ -1,17 +1,35 @@
 import { createBrowserClient } from '@supabase/ssr';
 
-if (process.env.NODE_ENV === 'development') {
-  console.log('✅ ENV CHECK:',
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? 'Key Loaded' : 'Key MISSING'
-  );
-}
-
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!url || !key) {
-  throw new Error('@supabase/ssr: Your project URL and API key are required to create a Supabase client!');
-}
+const createPlaceholderClient = () => {
+  const reject = (message: string) => Promise.reject(new Error(message));
+  const errorMessage = 'Supabase environment variables are not configured.';
+  return {
+    auth: {
+      getUser: () => reject(errorMessage),
+      signOut: () => reject(errorMessage),
+    },
+    from: () => ({
+      select: () => reject(errorMessage),
+      insert: () => reject(errorMessage),
+      update: () => reject(errorMessage),
+      delete: () => reject(errorMessage),
+      eq: () => ({
+        select: () => reject(errorMessage),
+        update: () => reject(errorMessage),
+        delete: () => reject(errorMessage),
+      }),
+    }),
+    storage: {
+      from: () => ({
+        upload: () => reject(errorMessage),
+        getPublicUrl: () => ({ data: { publicUrl: '' } }),
+      }),
+    },
+  } as unknown as ReturnType<typeof createBrowserClient>;
+};
 
-export const supabase = createBrowserClient(url, key);
+export const supabase =
+  url && key ? createBrowserClient(url, key) : createPlaceholderClient();
