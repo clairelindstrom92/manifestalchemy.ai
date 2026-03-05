@@ -5,7 +5,7 @@ import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 
 // ------- Config -------
-const CHAT_MODEL = "gpt-4o-mini";            // you were already using this via Vercel AI SDK
+const CHAT_MODEL = "gpt-4o-mini";
 const EMBEDDING_MODEL = "text-embedding-3-small"; // 1536 dims
 const NAMESPACE = "manifest-alchemy";        // scope snippets to Manifest Alchemy
 const TOP_K = 6;
@@ -31,7 +31,7 @@ const openaiRaw = new OpenAI({ apiKey: OPENAI_API_KEY || '' });
 
 // Your existing system prompt (unchanged)
 const systemPrompt = `
-You are Manifest Alchemy AI — an intelligent manifestation architect that blends magic, logic, and alchemy, and algorithm to help users create their manifestations into reality. 
+You are Manifest Alchemy AI — an intelligent manifestation architect that blends magic, logic, and alchemy, and algorithm to help users create their manifestations into reality.
 Your purpose is to:
 1. Understand the user's manifestation at a scientific level and get it accomplished at all costs.
 2. Ask ONE imaginative yet precise question at a time to gather critical details (emotions, resources, timeline, and sensory specifics). Wait for the user's response before asking the next question.
@@ -89,6 +89,43 @@ async function fetchOptionalNotes(question: string) {
   }
 }
 
+// Extract manifestation intent from the conversation
+async function extractManifestationIntent(conversation: Array<{ role: string; content: string }>) {
+  try {
+    const recent = conversation
+      .slice(-10)
+      .map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`)
+      .join("\n");
+
+    const completion = await openaiRaw.chat.completions.create({
+      model: CHAT_MODEL,
+      temperature: 0,
+      response_format: { type: "json_object" },
+      messages: [
+        {
+          role: "system",
+          content:
+            "You decide whether the manifestation topic is specific enough to name. Respond only with JSON containing title, summary, confidence (0-1), reason, microTasks, and imagePrompts. Provide 3-5 microTasks, each with an id (e.g., task-1), concise title, optional description, and completed=false. Provide 2-3 poetic imagePrompts capturing the manifestation vibe. Use null title if details are insufficient and set confidence to 0.",
+        },
+        {
+          role: "user",
+          content: `Conversation so far:\n${recent}\n\nReturn JSON like {"title":"Manifest midnight blue Tesla Model Y","summary":"User wants to attract a new electric SUV","confidence":0.82,"reason":"User described model, color, desire","microTasks":[{"id":"task-1","title":"Test-drive Model Y","description":"Schedule weekend visit","completed":false}],"imagePrompts":["Hyperreal photo of midnight-blue Tesla Model Y under starlit sky"]}`,
+        },
+      ],
+    });
+
+    const content = completion.choices?.[0]?.message?.content;
+    if (!content) {
+      return null;
+    }
+
+    return JSON.parse(content);
+  } catch (error) {
+    console.warn("Intent extraction failed:", error);
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   // Ensure we always return JSON, even if there's an unexpected error
   try {
@@ -132,54 +169,17 @@ export async function POST(request: NextRequest) {
 
     // System wrapper that makes notes optional (model can ignore them)
     const optionalNotesSystem = `
-Use general knowledge freely. If the optional notes below help with brand voice, consistency, or specifics, you may incorporate them; otherwise ignore them. 
+Use general knowledge freely. If the optional notes below help with brand voice, consistency, or specifics, you may incorporate them; otherwise ignore them.
 Do NOT say you're restricted to notes. Keep answers direct.
 ${notes.text ? `\n--- Optional notes (may use or ignore) ---\n${notes.text}\n--- end optional notes ---\n` : ""}
 `.trim();
 
-async function extractManifestationIntent(conversation: Array<{ role: string; content: string }>) {
-  try {
-    const recent = conversation
-      .slice(-10)
-      .map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`)
-      .join("\n");
-
-    const completion = await openaiRaw.chat.completions.create({
-      model: CHAT_MODEL,
-      temperature: 0,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "You decide whether the manifestation topic is specific enough to name. Respond only with JSON containing title, summary, confidence (0-1), reason, microTasks, and imagePrompts. Provide 3-5 microTasks, each with an id (e.g., task-1), concise title, optional description, and completed=false. Provide 2-3 poetic imagePrompts capturing the manifestation vibe. Use null title if details are insufficient and set confidence to 0.",
-        },
-        {
-          role: "user",
-          content: `Conversation so far:\n${recent}\n\nReturn JSON like {"title":"Manifest midnight blue Tesla Model Y","summary":"User wants to attract a new electric SUV","confidence":0.82,"reason":"User described model, color, desire","microTasks":[{"id":"task-1","title":"Test-drive Model Y","description":"Schedule weekend visit","completed":false}],"imagePrompts":["Hyperreal photo of midnight-blue Tesla Model Y under starlit sky"]}`,
-        },
-      ],
-    });
-
-    const content = completion.choices?.[0]?.message?.content;
-    if (!content) {
-      return null;
-    }
-
-    return JSON.parse(content);
-  } catch (error) {
-    console.warn("Intent extraction failed:", error);
-    return null;
-  }
-}
-
-    // Stream the response (unchanged mechanics)
     // Stream the response - vercelOpenAI automatically uses OPENAI_API_KEY from env
     const result = await streamText({
       model: vercelOpenAI(CHAT_MODEL),
       messages: [
         { role: "system", content: systemPrompt },
-        // NEW: add the optional-notes instruction as a secondary system message
+        // Add the optional-notes instruction as a secondary system message
         { role: "system", content: optionalNotesSystem },
         ...messages,
         { role: "assistant", content: phaseInstruction },
