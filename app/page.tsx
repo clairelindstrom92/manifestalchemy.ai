@@ -1,322 +1,151 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Gold } from 'gleamy';
-import ChatInterface from '../components/ChatInterface';
-import Sidebar from '../components/Sidebar';
+import { Sparkles, ArrowRight } from 'lucide-react';
 import AnimatedStarBackground from '../components/AnimatedStarBackground';
 import Dashboard from '../components/Dashboard';
 import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 import { supabase } from '@/lib/supabaseClient';
 
-type AppState = 'welcome' | 'chat' | 'dashboard';
-
-interface ProjectData {
-  id?: string;
-  title?: string;
-  messages?: string;
-  updated_at?: string;
-  content?: string;
-  manifestation_id?: string | null;
-}
-
 export default function Home() {
-  const [appState, setAppState] = useState<AppState>('welcome');
-  const [selectedProject, setSelectedProject] = useState<ProjectData | null>(null);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const { user, loading } = useSupabaseUser();
   const router = useRouter();
 
-  // Show dashboard first if user is logged in
-  useEffect(() => {
-    if (!loading && user && appState === 'welcome') {
-      setAppState('dashboard');
-    }
-    // If user logs out, go back to welcome
-    if (!loading && !user && appState === 'dashboard') {
-      setAppState('welcome');
-    }
-  }, [user, loading]);
-
-  const handleStartChat = () => {
-    // Always go to dashboard if logged in, otherwise chat
-    if (user) {
-      router.push('/');
-    } else {
-      router.push('/chat');
-    }
-  };
-
-  const handleNavigate = (section: string) => {
-    if (section === 'Chat' || section === 'chat') {
-      router.push('/chat');
-    } else {
-      // Other sections are handled by the Dashboard component's router.push
-    }
-  };
-
-  const handleBackToWelcome = () => {
-    setAppState('welcome');
-  };
-
-  const handleProjectUpdate = () => {
-    setRefreshTrigger(prev => prev + 1);
-  };
-
-  const handleProjectCreated = (project: ProjectData) => {
-    setSelectedProject(project);
-  };
-
-  const handleProjectDeleted = () => {
-    setSelectedProject(null);
-    setRefreshTrigger(prev => prev + 1);
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push('/');
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-white">
-        <div className="text-xl">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-black">
+        <div className="w-8 h-8 rounded-full border-2 border-[#E4B77D]/40 border-t-[#E4B77D] animate-spin" />
       </div>
     );
   }
 
   if (user) {
-    return <Dashboard onNavigate={handleNavigate} />;
+    return <Dashboard />;
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-black relative overflow-hidden">
-      {/* Subtle gradient background */}
-      <div className="absolute inset-0 bg-black"></div>
-      {/* Animated stars overlay */}
+    <div className="min-h-screen bg-black flex flex-col items-center justify-center relative overflow-hidden">
+      {/* Radial glow */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            'radial-gradient(ellipse 70% 60% at 50% 40%, rgba(228,183,125,0.1) 0%, transparent 70%)',
+        }}
+      />
       <AnimatedStarBackground />
 
-      {/* Login/Logout button in top right */}
-      <div className="absolute top-4 right-4 z-20">
-        {user ? (
-          <button
-            onClick={handleLogout}
-            className="relative text-[#f5f5f7] px-4 py-2 rounded-full transition-all duration-500 backdrop-blur-sm overflow-hidden text-xs font-medium gold-shiny"
+      {/* Top nav */}
+      <nav className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-6 py-4">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-full overflow-hidden border border-[#E4B77D]/30">
+            <Image src="/custom-logo.png" alt="Logo" width={28} height={28} className="w-full h-full object-cover" />
+          </div>
+          <span className="text-white/60 text-sm font-medium tracking-wide">Manifest Alchemy</span>
+        </div>
+        <button
+          onClick={() => router.push('/login')}
+          className="text-[#E4B77D]/70 hover:text-[#E4B77D] text-sm transition-colors border border-[#E4B77D]/20 hover:border-[#E4B77D]/40 px-4 py-1.5 rounded-full"
+        >
+          Sign in
+        </button>
+      </nav>
+
+      {/* Hero */}
+      <div className="relative z-10 flex flex-col items-center text-center px-6 max-w-lg mx-auto">
+        {/* Logo */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.85 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+          className="mb-8"
+        >
+          <div
+            className="w-28 h-28 mx-auto rounded-full overflow-hidden border border-[#E4B77D]/25"
             style={{
-              background: 'linear-gradient(to right, rgba(228, 183, 125, 0.2), rgba(228, 183, 125, 0.25), rgba(228, 183, 125, 0.2))',
-              border: '1px solid rgba(228, 183, 125, 0.3)',
-              textShadow: '0 0 10px rgba(228, 183, 125, 0.7), 0 0 20px rgba(228, 183, 125, 0.5), 0 0 30px rgba(228, 183, 125, 0.3)',
-              fontFamily: "'Quicksand', 'Poppins', sans-serif",
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(to right, rgba(228, 183, 125, 0.3), rgba(228, 183, 125, 0.35), rgba(228, 183, 125, 0.3))';
-              e.currentTarget.style.borderColor = 'rgba(228, 183, 125, 0.4)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(to right, rgba(228, 183, 125, 0.2), rgba(228, 183, 125, 0.25), rgba(228, 183, 125, 0.2))';
-              e.currentTarget.style.borderColor = 'rgba(228, 183, 125, 0.3)';
+              boxShadow: '0 0 60px rgba(228,183,125,0.2), 0 0 120px rgba(228,183,125,0.08)',
             }}
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-shimmer"></div>
-            <span className="relative z-10">Logout</span>
-          </button>
-        ) : (
+            <Image
+              src="/custom-logo.png"
+              alt="Manifest Alchemy"
+              width={112}
+              height={112}
+              className="w-full h-full object-cover"
+              priority
+            />
+          </div>
+        </motion.div>
+
+        {/* Tagline badge */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] mb-5 border border-[#E4B77D]/20 bg-[#E4B77D]/8 text-[#E4B77D]/70"
+        >
+          <Sparkles className="w-3 h-3" />
+          <span>AI-Powered Manifestation Coaching</span>
+        </motion.div>
+
+        {/* Title */}
+        <motion.h1
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="text-4xl sm:text-5xl text-white mb-4 tracking-tight"
+          style={{
+            fontFamily: "'Ballet', cursive",
+            letterSpacing: '0.06em',
+            textShadow: '0 0 40px rgba(228,183,125,0.3)',
+          }}
+        >
+          Manifest Alchemy
+        </motion.h1>
+
+        <motion.p
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.4 }}
+          className="text-white/40 text-base leading-relaxed mb-10 max-w-sm"
+        >
+          Transform your deepest desires into reality through AI-guided intention setting,
+          vision boards, and aligned action plans.
+        </motion.p>
+
+        {/* CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.55 }}
+          className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-xs"
+        >
           <button
             onClick={() => router.push('/login')}
-            className="relative text-[#f5f5f7] px-4 py-2 rounded-full transition-all duration-500 backdrop-blur-sm overflow-hidden text-xs font-medium gold-shiny"
+            className="relative w-full flex items-center justify-center gap-2 px-6 py-3 rounded-full text-sm font-semibold text-[#0a0a0f] transition-all duration-200 hover:brightness-110 active:scale-[0.97] overflow-hidden"
             style={{
-              background: 'linear-gradient(to right, rgba(228, 183, 125, 0.2), rgba(228, 183, 125, 0.25), rgba(228, 183, 125, 0.2))',
-              border: '1px solid rgba(228, 183, 125, 0.3)',
-              textShadow: '0 0 10px rgba(228, 183, 125, 0.7), 0 0 20px rgba(228, 183, 125, 0.5), 0 0 30px rgba(228, 183, 125, 0.3)',
-              fontFamily: "'Quicksand', 'Poppins', sans-serif",
-              letterSpacing: '0.1em',
-              textTransform: 'uppercase'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(to right, rgba(228, 183, 125, 0.3), rgba(228, 183, 125, 0.35), rgba(228, 183, 125, 0.3))';
-              e.currentTarget.style.borderColor = 'rgba(228, 183, 125, 0.4)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'linear-gradient(to right, rgba(228, 183, 125, 0.2), rgba(228, 183, 125, 0.25), rgba(228, 183, 125, 0.2))';
-              e.currentTarget.style.borderColor = 'rgba(228, 183, 125, 0.3)';
+              background: 'linear-gradient(135deg, #E4B77D 0%, #F0C896 50%, #E4B77D 100%)',
+              boxShadow: '0 0 30px rgba(228,183,125,0.3)',
             }}
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-shimmer"></div>
-                <div className="absolute top-1 left-2 w-1 h-1 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s', animationDuration: '2s', backgroundColor: '#E4B77D', boxShadow: '0 0 6px rgba(228, 183, 125, 0.8)' }}></div>
-                <div className="absolute bottom-1 right-2 w-1 h-1 rounded-full animate-ping opacity-60" style={{ animationDelay: '1s', animationDuration: '2.5s', backgroundColor: '#F0C896', boxShadow: '0 0 6px rgba(240, 200, 150, 0.8)' }}></div>
-            <span className="relative z-10">Login</span>
+            <span>Begin Your Journey</span>
+            <ArrowRight className="w-4 h-4" />
           </button>
-        )}
-      </div>
+        </motion.div>
 
-      <div className="max-w-2xl mx-auto text-center relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-          >
-            {/* Title with magical aura styling */}
-            <motion.div
-              className="relative mb-4"
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.5 }}
-            >
-              {/* Gold aura background */}
-              <div 
-                className="absolute inset-0 blur-xl opacity-60"
-                style={{
-                  background: 'radial-gradient(ellipse at center, rgba(228, 183, 125, 0.6) 0%, rgba(228, 183, 125, 0.4) 30%, rgba(240, 200, 150, 0.3) 60%, transparent 100%)',
-                  transform: 'scale(1.5)',
-                  zIndex: -1
-                }}
-              ></div>
-              
-              {/* Pulsing glow effect */}
-              <motion.div
-                className="absolute inset-0 blur-lg opacity-40"
-                animate={{ 
-                  scale: [1, 1.2, 1],
-                  opacity: [0.4, 0.7, 0.4]
-                }}
-                transition={{ 
-                  duration: 3,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-                style={{
-                  background: 'radial-gradient(ellipse at center, rgba(228, 183, 125, 0.8) 0%, rgba(240, 200, 150, 0.6) 50%, transparent 100%)',
-                  zIndex: -1
-                }}
-              ></motion.div>
-              
-              <h1 
-                className="relative text-2xl sm:text-3xl md:text-4xl lg:text-5xl ballet-font z-10 px-4 mb-2"
-                style={{ 
-                  letterSpacing: '0.1em',
-                  lineHeight: '1.2',
-                  position: 'relative',
-                }}
-              >
-                <span 
-                  className="relative z-30"
-                  style={{
-                    color: '#FFFFFF',
-                    textShadow: '0 0 20px rgba(228, 183, 125, 0.8), 0 0 40px rgba(228, 183, 125, 0.6), 0 0 60px rgba(228, 183, 125, 0.4)',
-                    WebkitTextStroke: '1px rgba(228, 183, 125, 0.8)',
-                    display: 'inline-block',
-                    position: 'relative',
-                  }}
-                >
-                  Manifest Alchemy
-                </span>
-              </h1>
-              <p className="text-[#a1a1aa] text-xs sm:text-sm mt-2 px-4">Transform your dreams into reality</p>
-            </motion.div>
-            {/* Custom Logo */}
-            <motion.div
-              initial={{ scale: 0, rotate: -180 }}
-              animate={{ 
-                scale: 1, 
-                rotate: 0
-              }}
-              transition={{ duration: 1, delay: 0.3 }}
-              className="mb-8"
-            >
-              <motion.div 
-                className="w-48 h-48 sm:w-60 sm:h-60 md:w-72 md:h-72 mx-auto flex items-center justify-center relative"
-                animate={{ 
-                  scale: [1, 1.2, 1.2, 0.6, 0.6, 1],
-                  opacity: [0.9, 1, 1, 0.8, 0.8, 0.9]
-                }}
-                transition={{ 
-                  duration: 20, 
-                  repeat: Infinity, 
-                  ease: [0.4, 0, 0.2, 1],
-                  times: [0, 0.3, 0.4, 0.7, 0.8, 1],
-                  delay: 1.3
-                }}
-                style={{
-                  filter: 'drop-shadow(0 0 20px rgba(228, 183, 125, 0.6)) drop-shadow(0 0 30px rgba(228, 183, 125, 0.4))',
-                }}
-              >
-                
-                <Image 
-                  src="/custom-logo.png" 
-                  alt="Manifest Alchemy Logo" 
-                  width={240}
-                  height={240}
-                  className="w-full h-full object-contain relative z-10"
-                />
-              </motion.div>
-            </motion.div>
-            
-            <div className="space-y-6">
-            <motion.button
-              onClick={handleStartChat}
-              className="relative w-full max-w-xs mx-auto flex items-center justify-center gap-2 px-4 py-2 text-white rounded-full text-xs font-medium transition-all duration-500 transform hover:scale-105 shadow-lg backdrop-blur-sm overflow-hidden gold-shiny"
-              style={{
-                background: 'linear-gradient(to right, rgba(228, 183, 125, 0.1), rgba(228, 183, 125, 0.15), rgba(228, 183, 125, 0.1))',
-                border: '1px solid rgba(228, 183, 125, 0.2)',
-                fontFamily: "'Quicksand', 'Poppins', sans-serif",
-                letterSpacing: '0.15em',
-                textShadow: '0 0 10px rgba(228, 183, 125, 0.7), 0 0 20px rgba(228, 183, 125, 0.5), 0 0 30px rgba(228, 183, 125, 0.3)',
-                textTransform: 'uppercase'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(to right, rgba(228, 183, 125, 0.2), rgba(228, 183, 125, 0.25), rgba(228, 183, 125, 0.2))';
-                e.currentTarget.style.borderColor = 'rgba(228, 183, 125, 0.4)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(to right, rgba(228, 183, 125, 0.1), rgba(228, 183, 125, 0.15), rgba(228, 183, 125, 0.1))';
-                e.currentTarget.style.borderColor = 'rgba(228, 183, 125, 0.2)';
-              }}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.9 }}
-            >
-              {/* Sparkle particles */}
-              <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute top-2 left-4 w-1 h-1 rounded-full animate-ping opacity-60" style={{ animationDelay: '0s', animationDuration: '2s', backgroundColor: '#E4B77D', boxShadow: '0 0 6px rgba(228, 183, 125, 0.8)' }}></div>
-                <div className="absolute top-3 right-6 w-1 h-1 rounded-full animate-ping opacity-70" style={{ animationDelay: '0.5s', animationDuration: '2.5s', backgroundColor: '#F0C896', boxShadow: '0 0 6px rgba(240, 200, 150, 0.8)' }}></div>
-                <div className="absolute bottom-2 left-8 w-1 h-1 rounded-full animate-ping opacity-50" style={{ animationDelay: '1s', animationDuration: '3s', backgroundColor: '#E4B77D', boxShadow: '0 0 6px rgba(228, 183, 125, 0.8)' }}></div>
-                <div className="absolute bottom-3 right-4 w-1 h-1 rounded-full animate-ping opacity-60" style={{ animationDelay: '1.5s', animationDuration: '2.2s', backgroundColor: '#F0C896', boxShadow: '0 0 6px rgba(240, 200, 150, 0.8)' }}></div>
-                <div className="absolute top-1/2 left-2 w-1 h-1 rounded-full animate-ping opacity-40" style={{ animationDelay: '2s', animationDuration: '2.8s', backgroundColor: '#E4B77D', boxShadow: '0 0 6px rgba(228, 183, 125, 0.8)' }}></div>
-                <div className="absolute top-1/2 right-2 w-1 h-1 rounded-full animate-ping opacity-55" style={{ animationDelay: '2.5s', animationDuration: '2.3s', backgroundColor: '#F0C896', boxShadow: '0 0 6px rgba(240, 200, 150, 0.8)' }}></div>
-              </div>
-              
-              {/* Shimmer effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-shimmer"></div>
-              
-              {/* Magical text with character-by-character animation */}
-              <span className="relative z-10">
-                {Array.from("I'M READY TO MANIFEST MY DREAMS").map((char, index) => (
-                  <motion.span
-                    key={index}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ 
-                      duration: 0.3, 
-                      delay: 0.9 + (index * 0.05),
-                      ease: "easeOut"
-                    }}
-                    className="inline-block"
-                  >
-                    {char === ' ' ? '\u00A0' : char}
-                  </motion.span>
-                ))}
-              </span>
-            </motion.button>
-            </div>
-          </motion.div>
-        </div>
+        {/* Social proof */}
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, delay: 0.8 }}
+          className="text-white/20 text-xs mt-8"
+        >
+          Mystical. Methodical. Transformative.
+        </motion.p>
       </div>
+    </div>
   );
 }

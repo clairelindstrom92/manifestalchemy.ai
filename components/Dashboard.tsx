@@ -1,56 +1,104 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import { Gold } from 'gleamy';
-import { 
-  MessageCircle, 
-  Sparkles, 
-  Heart, 
+import Image from 'next/image';
+import {
+  MessageCircle,
+  Sparkles,
+  Heart,
   Calendar,
-  Moon,
   Send,
   BookOpen,
   UserPlus,
-  LogOut
+  LogOut,
+  Moon,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
+import AnimatedStarBackground from '@/components/AnimatedStarBackground';
 
 interface DashboardProps {
   onNavigate?: (section: string) => void;
 }
 
+const NAV_ITEMS = [
+  {
+    icon: MessageCircle,
+    label: 'Manifest',
+    description: 'Start a new AI session',
+    route: '/chat',
+    gradient: 'from-[#E4B77D]/20 to-[#E4B77D]/5',
+    border: 'border-[#E4B77D]/25',
+  },
+  {
+    icon: Sparkles,
+    label: 'Manifestations',
+    description: 'View & manage your goals',
+    route: '/dashboard/manifestations',
+    gradient: 'from-[#E4B77D]/20 to-[#E4B77D]/5',
+    border: 'border-[#E4B77D]/25',
+  },
+  {
+    icon: Heart,
+    label: 'Affirmations',
+    description: 'Your daily power words',
+    route: '/dashboard/affirmations',
+    gradient: 'from-[#E4B77D]/20 to-[#E4B77D]/5',
+    border: 'border-[#E4B77D]/25',
+  },
+  {
+    icon: BookOpen,
+    label: 'Inspirations',
+    description: 'Curated wisdom & quotes',
+    route: '/dashboard/inspirations',
+    gradient: 'from-[#E4B77D]/20 to-[#E4B77D]/5',
+    border: 'border-[#E4B77D]/25',
+  },
+  {
+    icon: Send,
+    label: 'Feed',
+    description: 'Community manifestations',
+    route: '/dashboard/feed',
+    gradient: 'from-[#E4B77D]/20 to-[#E4B77D]/5',
+    border: 'border-[#E4B77D]/25',
+  },
+  {
+    icon: UserPlus,
+    label: 'Friends',
+    description: 'Connect & inspire others',
+    route: '/dashboard/friends',
+    gradient: 'from-[#E4B77D]/20 to-[#E4B77D]/5',
+    border: 'border-[#E4B77D]/25',
+  },
+  {
+    icon: Calendar,
+    label: 'Birth Chart',
+    description: 'Cosmic alignment insights',
+    route: '/dashboard/birth-chart',
+    gradient: 'from-[#E4B77D]/20 to-[#E4B77D]/5',
+    border: 'border-[#E4B77D]/25',
+  },
+];
+
+const container = {
+  hidden: { opacity: 0 },
+  show: { opacity: 1, transition: { staggerChildren: 0.07 } },
+};
+const item = {
+  hidden: { opacity: 0, y: 20 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.4 } },
+};
+
 export default function Dashboard({ onNavigate }: DashboardProps) {
   const router = useRouter();
-  const [selectedSection, setSelectedSection] = useState<string | null>(null);
-  const [radius, setRadius] = useState(240);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
 
-  // Calculate responsive radius
   useEffect(() => {
-    const updateRadius = () => {
-      const width = window.innerWidth;
-      if (width < 480) {
-        setRadius(140);
-      } else if (width < 768) {
-        setRadius(180);
-      } else {
-        setRadius(240);
-      }
-    };
-    updateRadius();
-    window.addEventListener('resize', updateRadius);
-    return () => window.removeEventListener('resize', updateRadius);
+    supabase.auth.getUser().then(({ data }: { data: { user: { email?: string } | null } }) => {
+      setUserEmail(data.user?.email ?? null);
+    });
   }, []);
-
-  const handleSectionClick = (section: string, route: string) => {
-    setSelectedSection(section);
-    if (route) {
-      router.push(route);
-    } else if (onNavigate) {
-      onNavigate(section);
-    }
-  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -58,126 +106,112 @@ export default function Dashboard({ onNavigate }: DashboardProps) {
     router.refresh();
   };
 
-  // Main navigation sections
-  const mainSections = [
-    { icon: MessageCircle, label: 'Chat', route: '/chat', color: 'rgba(228, 183, 125, 0.9)', action: 'chat' },
-    { icon: Sparkles, label: 'Manifestations', route: '/dashboard/manifestations', color: 'rgba(228, 183, 125, 0.9)', action: 'manifestations' },
-    { icon: Send, label: 'Feed', route: '/dashboard/feed', color: 'rgba(228, 183, 125, 0.9)', action: 'feed' },
-    { icon: BookOpen, label: 'Inspirations', route: '/dashboard/inspirations', color: 'rgba(228, 183, 125, 0.9)', action: 'inspirations' },
-    { icon: UserPlus, label: 'Friends', route: '/dashboard/friends', color: 'rgba(228, 183, 125, 0.9)', action: 'friends' },
-    { icon: Heart, label: 'Affirmations', route: '/dashboard/affirmations', color: 'rgba(228, 183, 125, 0.9)', action: 'affirmations' },
-    { icon: Calendar, label: 'Birth Chart', route: '/dashboard/birth-chart', color: 'rgba(228, 183, 125, 0.9)', action: 'birth-chart' },
-  ];
+  const greeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
 
   return (
-    <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center">
-      {/* Top status bar */}
-      <div className="absolute top-4 left-4 right-4 z-20 flex justify-between items-center">
-        <Moon className="w-5 h-5 text-[#E4B77D] gold-shiny" strokeWidth={1.5} />
+    <div className="min-h-screen bg-black relative overflow-hidden">
+      {/* Background */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(228,183,125,0.12) 0%, transparent 70%)',
+        }}
+      />
+      <AnimatedStarBackground />
+
+      {/* Header */}
+      <header className="relative z-10 flex items-center justify-between px-6 py-5 border-b border-white/5">
         <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full overflow-hidden border border-[#E4B77D]/30">
+            <Image src="/custom-logo.png" alt="Logo" width={32} height={32} className="w-full h-full object-cover" />
+          </div>
+          <div>
+            <p className="text-white/40 text-xs leading-none">{greeting()}</p>
+            <p className="text-white/80 text-sm font-medium mt-0.5 leading-none truncate max-w-[200px]">
+              {userEmail ? userEmail.split('@')[0] : 'Alchemist'}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <Moon className="w-4 h-4 text-[#E4B77D]/60" strokeWidth={1.5} />
           <button
             onClick={handleLogout}
-            className="p-2 rounded-full border border-[#E4B77D] text-[#E4B77D] hover:bg-[#E4B77D]/10 transition-colors gold-shiny"
+            className="p-2 rounded-lg text-white/30 hover:text-white/60 hover:bg-white/5 transition-colors"
             aria-label="Logout"
           >
-            <LogOut className="w-5 h-5" />
+            <LogOut className="w-4 h-4" />
           </button>
-          <div className="w-8 h-1 bg-[#E4B77D] rounded-full opacity-60 gold-shiny"></div>
         </div>
+      </header>
+
+      {/* Hero */}
+      <div className="relative z-10 text-center pt-10 pb-8 px-6">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+        >
+          <div
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs mb-5 border border-[#E4B77D]/20 bg-[#E4B77D]/8 text-[#E4B77D]/80"
+          >
+            <Sparkles className="w-3 h-3" />
+            <span>Your manifestation portal</span>
+          </div>
+          <h1
+            className="text-3xl sm:text-4xl font-light text-white mb-3 tracking-tight"
+            style={{ fontFamily: "'Ballet', cursive", letterSpacing: '0.04em' }}
+          >
+            Manifest Alchemy
+          </h1>
+          <p className="text-white/35 text-sm max-w-xs mx-auto leading-relaxed">
+            Transform your desires into reality through intention, alchemy, and aligned action.
+          </p>
+        </motion.div>
       </div>
 
-      {/* Main navigation sections only */}
-      <div className="absolute inset-0 z-30 pointer-events-none flex items-center justify-center">
-        <div className="relative" style={{ width: '100%', height: '100%' }}>
-          {mainSections.map((section, index) => {
-            const Icon = section.icon;
-            const angle = (index * 360) / mainSections.length - 90; // Start from top
-            const x = Math.cos((angle * Math.PI) / 180) * radius;
-            const y = Math.sin((angle * Math.PI) / 180) * radius;
-            
+      {/* Navigation Grid */}
+      <main className="relative z-10 max-w-2xl mx-auto px-4 pb-12">
+        <motion.div
+          variants={container}
+          initial="hidden"
+          animate="show"
+          className="grid grid-cols-2 sm:grid-cols-3 gap-3"
+        >
+          {NAV_ITEMS.map((navItem) => {
+            const Icon = navItem.icon;
             return (
               <motion.button
-                key={section.label}
-                className="absolute pointer-events-auto group"
-                style={{
-                  left: `calc(50% + ${x}px)`,
-                  top: `calc(50% + ${y}px)`,
-                  transform: 'translate(-50%, -50%)',
-                }}
+                key={navItem.label}
+                variants={item}
                 onClick={() => {
-                  handleSectionClick(section.label, section.route);
+                  if (onNavigate) onNavigate(navItem.label);
+                  router.push(navItem.route);
                 }}
-                whileHover={{ scale: 1.15 }}
-                whileTap={{ scale: 0.95 }}
-                initial={{ opacity: 0.8, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.1 + index * 0.05, duration: 0.4 }}
+                whileHover={{ scale: 1.02, transition: { duration: 0.15 } }}
+                whileTap={{ scale: 0.97 }}
+                className={`relative group flex flex-col items-center text-center p-5 rounded-2xl border bg-gradient-to-br backdrop-blur-sm transition-all duration-300 hover:border-[#E4B77D]/50 ${navItem.gradient} ${navItem.border} bg-white/2`}
               >
-                <div className="flex flex-col items-center gap-1 sm:gap-2">
-                  <div 
-                    className="p-2 sm:p-3 md:p-4 rounded-full border-2 border-[#E4B77D] bg-black/70 backdrop-blur-sm gold-shiny"
-                    style={{
-                      boxShadow: `
-                        0 0 20px rgba(228, 183, 125, 0.9),
-                        0 0 40px rgba(228, 183, 125, 0.6),
-                        inset 0 0 15px rgba(228, 183, 125, 0.7)
-                      `,
-                    }}
-                  >
-                    <Icon 
-                      className="w-6 h-6 sm:w-8 sm:h-8 md:w-10 md:h-10 text-[#E4B77D] stroke-[2.5] gold-shiny" 
-                      style={{
-                        filter: 'drop-shadow(0 0 12px rgba(228, 183, 125, 1)) drop-shadow(0 0 20px rgba(228, 183, 125, 0.8))',
-                      }}
-                    />
-                  </div>
-                  <Gold 
-                    acceleration={1} 
-                    rendering={true} 
-                    noFill={false} 
-                    edgeThickness={1} 
-                    spread={0.5}
-                  >
-                    <span 
-                      className="text-xs sm:text-sm font-semibold text-white whitespace-nowrap"
-                      style={{
-                        fontSize: '10px',
-                        letterSpacing: '0.05em',
-                        textShadow: '0 0 8px rgba(228, 183, 125, 0.8)',
-                      }}
-                    >
-                      {section.label}
-                    </span>
-                  </Gold>
+                <div
+                  className="w-11 h-11 rounded-xl flex items-center justify-center mb-3 border border-[#E4B77D]/20 bg-[#E4B77D]/10 group-hover:bg-[#E4B77D]/20 transition-colors"
+                >
+                  <Icon className="w-5 h-5 text-[#E4B77D]" strokeWidth={1.5} />
                 </div>
+                <span className="text-white/85 font-medium text-sm mb-1">{navItem.label}</span>
+                <span className="text-white/30 text-[11px] leading-snug">{navItem.description}</span>
+
+                {/* Hover glow */}
+                <div className="absolute inset-0 rounded-2xl bg-[#E4B77D]/0 group-hover:bg-[#E4B77D]/4 transition-colors pointer-events-none" />
               </motion.button>
             );
           })}
-        </div>
-      </div>
-
-      {/* Floating particles */}
-      {[...Array(30)].map((_, i) => (
-        <motion.div
-          key={i}
-          className="absolute w-1 h-1 bg-[#E4B77D] rounded-full gold-shiny"
-          style={{
-            left: `${Math.random() * 100}%`,
-            top: `${Math.random() * 100}%`,
-            opacity: Math.random() * 0.5 + 0.3,
-          }}
-          animate={{
-            y: [0, -30, 0],
-            opacity: [0.3, 0.8, 0.3],
-          }}
-          transition={{
-            duration: Math.max(0.1, 3 + Math.random() * 2),
-            repeat: Infinity,
-            delay: Math.max(0, Math.random() * 2),
-          }}
-        />
-      ))}
+        </motion.div>
+      </main>
     </div>
   );
 }
-

@@ -1,229 +1,204 @@
 import { NextRequest, NextResponse } from "next/server";
-import { openai as vercelOpenAI } from "@ai-sdk/openai";
-import { streamText } from "ai";
-import OpenAI from "openai";
-import { createClient } from "@supabase/supabase-js";
+import { chatStream, jsonComplete } from "@/lib/ai/router";
+import { queryChunks } from "@/lib/rag/embed";
 
-// ------- Config -------
-const CHAT_MODEL = "gpt-4o-mini";            // you were already using this via Vercel AI SDK
-const EMBEDDING_MODEL = "text-embedding-3-small"; // 1536 dims
-const NAMESPACE = "manifest-alchemy";        // scope snippets to Manifest Alchemy
-const TOP_K = 6;
-const MIN_SIMILARITY = 0.65;
+// ---------------------------------------------------------------
+// System prompt — trained style + diverse question-type examples
+// ---------------------------------------------------------------
+const systemPrompt = `You are Manifest Alchemy AI — a mystical yet methodical manifestation architect who blends alchemy, neuroscience, and the law of attraction to help users transmute their desires into reality.
 
-// Clients - Use NEXT_PUBLIC_SUPABASE_URL (or fallback to SUPABASE_URL)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+CORE RULES:
+1. Ask exactly ONE question per response. Never more. Wait for the answer before asking the next.
+2. VARY your question type every turn. You have 7 question types — rotate through them based on what information is most missing:
+   - SPECIFICITY: "What exact make/model/number/location/role are you seeing?"
+   - TIMELINE: "When does this land? What is the energetic deadline you feel pulling you?"
+   - WHY / ROOT DESIRE: "What deeper truth is this manifestation unlocking for you?"
+   - OBSTACLE: "What is the one belief or circumstance that feels like the biggest block right now?"
+   - VISUALIZATION: "Walk me through one specific moment — where are you, what are you doing, who is there?"
+   - ACTION EVIDENCE: "What have you already done, however small, that tells the universe you are serious?"
+   - EMOTIONAL ANCHOR: "If this was already real, what feeling would be living in your body that isn't fully there yet?"
+3. DO NOT default to the emotional anchor question first. For the very first message, lead with SPECIFICITY or VISUALIZATION — get the concrete picture before the emotional texture.
+4. After 6+ exchanges, generate the full ✨ Manifestation Plan.
+5. Tone: mystical yet grounded. Brief, evocative acknowledgment of their answer (1 sentence), then your question. Never over-explain.
+6. Treat every intention as sacred — no desire is too small or too grand.
 
-// Initialize Supabase client only if we have the required env vars
-let supabase: ReturnType<typeof createClient> | null = null;
-if (supabaseUrl && supabaseServiceKey) {
+---
+TRAINING EXAMPLES — study the VARIETY of question types across different topics:
+
+USER: I want to manifest a new car.
+YOU: [SPECIFICITY] A new car is freedom made physical. What make, model, and color are you already seeing in your mind — and is there a specific moment or version of your life it represents?
+
+USER: I want to manifest more money.
+YOU: [WHY] Abundance is your birthright — let us give it a precise address. Beyond the number itself, what does having this money finally free you from?
+
+USER: I want to find my soulmate.
+YOU: [VISUALIZATION] Love is the most powerful frequency in existence. Walk me through one specific scene — where are you the first moment you know, without doubt, that this is them?
+
+USER: I want to start my own business.
+YOU: [WHY] Entrepreneurship is alchemy — inner vision becoming outer reality. What problem in the world do you feel a burning, almost irrational desire to solve that no one else seems to be solving the right way?
+
+USER: I want to lose weight and get healthy.
+YOU: [TIMELINE] Your body is already listening. By when does the version of you who has achieved this wake up and feel completely different — what is the specific date or season that keeps surfacing?
+
+USER: I want to manifest a dream home.
+YOU: [SPECIFICITY] A home is a container for your entire life's energy. What city or neighborhood, and what specific architectural detail — a room, a view, a feature — do you keep returning to in your mind?
+
+USER: I feel stuck and don't know what I want to manifest.
+YOU: [ROOT DESIRE] Stillness is not the absence of desire — it is desire gathering its strength. If failure was impossible and no one would judge you, what is the one thing you would quietly admit you want most?
+
+USER: I want to manifest a promotion at work.
+YOU: [OBSTACLE] Recognition is your inner value finding its outer match. What is the one belief you hold about yourself that you suspect is the real reason this hasn't happened yet?
+
+USER: I'm not sure manifestation actually works.
+YOU: [ACTION EVIDENCE] That skepticism is one of the most intelligent places to begin. What is one small, specific thing you would be willing to test over the next 7 days — just to gather your own data?
+
+USER: I want to manifest my dream body.
+YOU: [VISUALIZATION] Your body is already responding to this decision. Describe one single moment — a morning, an event, a mirror — where you see and feel this version of yourself completely arrived.
+
+USER: I want to manifest a trip to Paris.
+YOU: [EMOTIONAL ANCHOR] Travel is the alchemy of becoming someone new. What feeling do you expect to unlock the moment you land — the one that your current daily life isn't giving you enough of?
+
+USER: I already know what I want — I just need to make it happen.
+YOU: [ACTION EVIDENCE] Then the energy is already moving — let us give it direction. What is one concrete action you have been putting off that you know, if you did it today, would signal to yourself that this is real?
+---`;
+
+// ---------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------
+
+async function fetchOptionalNotes(question: string, userId?: string) {
+  if (!question?.trim()) return { text: "", count: 0 };
   try {
-    supabase = createClient(supabaseUrl, supabaseServiceKey);
-  } catch (error) {
-    console.error("Failed to initialize Supabase client:", error);
-  }
-}
-
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY as string;
-
-const openaiRaw = new OpenAI({ apiKey: OPENAI_API_KEY || '' });
-
-// Your existing system prompt (unchanged)
-const systemPrompt = `
-You are Manifest Alchemy AI — an intelligent manifestation architect that blends magic, logic, and alchemy, and algorithm to help users create their manifestations into reality. 
-Your purpose is to:
-1. Understand the user's manifestation at a scientific level and get it accomplished at all costs.
-2. Ask ONE imaginative yet precise question at a time to gather critical details (emotions, resources, timeline, and sensory specifics). Wait for the user's response before asking the next question.
-3. Once you have enough data, create a "✨ Manifestation Plan" — a structured plan rooted in neuroscience of goal completion and visualization.
-4. Generate cognitive and magical momentum — turn potential energy (desire) into kinetic energy (action).
-5. Maintain tone: mystical yet methodical — grounded in science but elevated by imagination.
-
-IMPORTANT: Ask only ONE question per response. Do not list multiple questions. Have a natural, conversational flow.
-`;
-
-// Fetch optional notes from Supabase (gracefully handles failures)
-async function fetchOptionalNotes(question: string) {
-  // If Supabase isn't configured or no question, return empty
-  if (!supabase || !question?.trim()) {
-    return { text: "", count: 0 };
-  }
-
-  try {
-    // Generate embedding
-    const emb = await openaiRaw.embeddings.create({
-      model: EMBEDDING_MODEL,
-      input: question,
+    const chunks = await queryChunks({
+      userId: userId ?? "",
+      query: question,
+      matchCount: 6,
+      minSimilarity: 0.65,
     });
-    const queryEmbedding = emb.data[0].embedding as unknown as number[];
-
-    // Try to fetch relevant chunks
-    type ChunkResult = { content: string; metadata: Record<string, unknown>; similarity: number };
-    // @ts-expect-error - Supabase RPC function signature not known at compile time
-    const { data, error } = await supabase.rpc("match_chunks_ns", {
-      query_embedding: queryEmbedding,
-      match_count: TOP_K,
-      min_similarity: MIN_SIMILARITY,
-      ns: NAMESPACE,
-    }) as Promise<{ data: ChunkResult[] | null; error: { message: string } | null }>;
-
-    // If RPC function doesn't exist or returns error, gracefully fail
-    if (error) {
-      console.warn("Supabase RPC error (this is OK if function doesn't exist yet):", error.message);
-      return { text: "", count: 0 };
-    }
-
-    if (!data || !Array.isArray(data) || data.length === 0) {
-      return { text: "", count: 0 };
-    }
-
-    const text = data
-      .map((m, i: number) => `# Note ${i + 1}\n${m.content}`)
-      .join("\n\n");
-
-    return { text, count: data.length };
-  } catch (error) {
-    // Log but don't fail - just continue without notes
-    console.warn("Error fetching optional notes (continuing without them):", error);
+    if (!chunks.length) return { text: "", count: 0 };
+    const text = chunks.map((m, i) => `# Memory ${i + 1}\n${m.content}`).join("\n\n");
+    return { text, count: chunks.length };
+  } catch {
     return { text: "", count: 0 };
   }
 }
 
-export async function POST(request: NextRequest) {
-  // Ensure we always return JSON, even if there's an unexpected error
-  try {
-    let messages;
-    try {
-      const body = await request.json();
-      messages = body.messages;
-    } catch {
-      return NextResponse.json(
-        { error: "Invalid request body", message: "Could not parse JSON from request" },
-        { status: 400 }
-      );
-    }
-
-    if (!messages || !Array.isArray(messages)) {
-      return NextResponse.json(
-        { error: "Messages array is required" },
-        { status: 400 }
-      );
-    }
-
-    // Determine if it's time to produce the plan (your original logic)
-    const hasPlan =
-      messages.some(
-        (msg) =>
-          msg.role === "assistant" &&
-          typeof msg.content === "string" &&
-          msg.content.includes("✨ Manifestation Plan")
-      ) || messages.filter((msg) => msg.role === "user").length > 6;
-
-    const phaseInstruction = hasPlan
-      ? "Now generate the ✨ Manifestation Plan ✨ using all gathered details."
-      : "Ask ONE thoughtful, creative question to help understand the manifestation. Wait for the user's response before asking the next question. Keep it conversational and natural.";
-
-    // Pull the latest user question to guide retrieval (fallback to empty string)
-    const lastUserMsg =
-      [...messages].reverse().find((m) => m.role === "user")?.content || "";
-
-    // --- OPTIONAL NOTES (NOT STRICT) ---
-    const notes = await fetchOptionalNotes(String(lastUserMsg));
-
-    // System wrapper that makes notes optional (model can ignore them)
-    const optionalNotesSystem = `
-Use general knowledge freely. If the optional notes below help with brand voice, consistency, or specifics, you may incorporate them; otherwise ignore them. 
-Do NOT say you're restricted to notes. Keep answers direct.
-${notes.text ? `\n--- Optional notes (may use or ignore) ---\n${notes.text}\n--- end optional notes ---\n` : ""}
-`.trim();
-
-async function extractManifestationIntent(conversation: Array<{ role: string; content: string }>) {
+async function extractManifestationIntent(
+  conversation: Array<{ role: string; content: string }>
+) {
   try {
     const recent = conversation
-      .slice(-10)
+      .slice(-12)
       .map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`)
       .join("\n");
 
-    const completion = await openaiRaw.chat.completions.create({
-      model: CHAT_MODEL,
-      temperature: 0,
-      response_format: { type: "json_object" },
-      messages: [
-        {
-          role: "system",
-          content:
-            "You decide whether the manifestation topic is specific enough to name. Respond only with JSON containing title, summary, confidence (0-1), reason, microTasks, and imagePrompts. Provide 3-5 microTasks, each with an id (e.g., task-1), concise title, optional description, and completed=false. Provide 2-3 poetic imagePrompts capturing the manifestation vibe. Use null title if details are insufficient and set confidence to 0.",
-        },
-        {
-          role: "user",
-          content: `Conversation so far:\n${recent}\n\nReturn JSON like {"title":"Manifest midnight blue Tesla Model Y","summary":"User wants to attract a new electric SUV","confidence":0.82,"reason":"User described model, color, desire","microTasks":[{"id":"task-1","title":"Test-drive Model Y","description":"Schedule weekend visit","completed":false}],"imagePrompts":["Hyperreal photo of midnight-blue Tesla Model Y under starlit sky"]}`,
-        },
-      ],
-    });
-
-    const content = completion.choices?.[0]?.message?.content;
-    if (!content) {
-      return null;
-    }
+    const content = await jsonComplete([
+      {
+        role: "system",
+        content:
+          "You are an intent extractor. Analyze the conversation and return a JSON object. Include: title (concise, specific — e.g. 'Manifest midnight blue Tesla Model Y'), summary (1-2 sentences of what they are calling in), confidence (0-1 — how clearly defined the manifestation is), reason (what details confirm this), microTasks (3-5 concrete action steps each with id, title, description, completed=false), imagePrompts (2-3 vivid cinematic scene descriptions showing the person ALREADY LIVING this reality, with specific settings and mood — do NOT include the word MANIFESTA). Use null title and confidence=0 if the goal is still vague.",
+      },
+      {
+        role: "user",
+        content: `Conversation:\n${recent}\n\nReturn JSON: {"title":"...","summary":"...","confidence":0.85,"reason":"...","microTasks":[{"id":"task-1","title":"...","description":"...","completed":false}],"imagePrompts":["Woman relaxing in a light-filled luxury apartment, floor-to-ceiling windows, golden hour, peaceful smile"]}`,
+      },
+    ]);
 
     return JSON.parse(content);
-  } catch (error) {
-    console.warn("Intent extraction failed:", error);
+  } catch {
     return null;
   }
 }
 
-    // Stream the response (unchanged mechanics)
-    // Stream the response - vercelOpenAI automatically uses OPENAI_API_KEY from env
-    const result = await streamText({
-      model: vercelOpenAI(CHAT_MODEL),
-      messages: [
-        { role: "system", content: systemPrompt },
-        // NEW: add the optional-notes instruction as a secondary system message
-        { role: "system", content: optionalNotesSystem },
-        ...messages,
-        { role: "assistant", content: phaseInstruction },
-      ],
-      // Slightly balanced creativity
-      temperature: 0.5,
-    });
+// ---------------------------------------------------------------
+// POST handler — streaming newline-delimited JSON
+// ---------------------------------------------------------------
+export async function POST(request: NextRequest) {
+  let messages: Array<{ role: string; content: string }>;
+  let userId: string | undefined;
 
-    let fullText = "";
-    for await (const textPart of result.textStream) {
-      fullText += textPart;
-    }
-
-    const usage = await result.usage;
-
-    if (!fullText.trim()) {
-      fullText = "I'm sorry, I couldn't generate a response. Please try again.";
-    }
-
-    const intent = await extractManifestationIntent([
-      ...messages,
-      { role: "assistant", content: fullText },
-    ]);
-
-    return NextResponse.json({ message: fullText, usage, notes_used: notes.count, intent });
-  } catch (error) {
-    console.error("Chat API error:", error);
-
-    let errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
-
-    // Better error messages
-    if (errorMessage.includes("API key") || errorMessage.includes("authentication")) {
-      errorMessage = "OpenAI API key issue. Please check your OPENAI_API_KEY environment variable.";
-    } else if (errorMessage.includes("401") || errorMessage.includes("Unauthorized")) {
-      errorMessage = "Invalid OpenAI API key. Please verify your API key.";
-    } else if (errorMessage.includes("429") || errorMessage.includes("rate limit")) {
-      errorMessage = "Rate limit exceeded. Please try again in a few minutes.";
-    } else if (errorMessage.includes("model")) {
-      errorMessage = `Model access issue: ${errorMessage}`;
-    }
-
-    return NextResponse.json(
-      { error: "Failed to process chat message", message: errorMessage },
-      { status: 500 }
-    );
+  try {
+    const body = await request.json();
+    messages = body.messages;
+    userId = body.userId;
+  } catch {
+    return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
   }
+
+  if (!messages || !Array.isArray(messages)) {
+    return NextResponse.json({ error: "Messages array is required" }, { status: 400 });
+  }
+
+  // Phase detection
+  const userCount = messages.filter((m) => m.role === "user").length;
+  const hasPlan = messages.some(
+    (m) => m.role === "assistant" && typeof m.content === "string" && m.content.includes("✨ Manifestation Plan")
+  );
+  const shouldGeneratePlan = hasPlan || userCount > 6;
+
+  const phaseInstruction = shouldGeneratePlan
+    ? `The user has shared enough details. Now generate a complete, beautifully formatted "✨ Manifestation Plan ✨" that includes:
+- A powerful, specific title for this manifestation
+- A neuroscience-backed summary: explain what they are calling in and why the brain-body system responds to clear intention
+- 5 micro-actions ranked by energetic momentum (most impactful first)
+- A daily visualization script: sensory-rich, present tense, 3-4 sentences that make the outcome feel real NOW
+- An alchemical affirmation to anchor this frequency daily
+
+Use elegant markdown formatting. Make it feel like a sacred, personalized document — the most important thing they will read today.`
+    : `Ask your next single, imaginative question to deepen your understanding of this manifestation. Gather whichever element is most missing: sensory details, emotional signature, timeline, obstacles, or "why now." Be poetic, precise, and grounded. ONE question only.`;
+
+  const lastUserMsg = [...messages].reverse().find((m) => m.role === "user")?.content || "";
+  const notes = await fetchOptionalNotes(String(lastUserMsg), userId);
+
+  const memoryContext = notes.text
+    ? `\nRelevant context from this user's previous manifestation sessions (weave in naturally if useful):\n--- User Memories ---\n${notes.text}\n--- End Memories ---`
+    : "";
+
+  const fullMessages = [
+    { role: "system" as const, content: systemPrompt + memoryContext },
+    ...messages.map((m) => ({
+      role: m.role as "user" | "assistant" | "system",
+      content: m.content,
+    })),
+    { role: "system" as const, content: phaseInstruction },
+  ];
+
+  const encoder = new TextEncoder();
+
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        let fullText = "";
+
+        for await (const chunk of chatStream(fullMessages, { temperature: 0.7 })) {
+          fullText += chunk;
+          controller.enqueue(encoder.encode(JSON.stringify({ t: "c", v: chunk }) + "\n"));
+        }
+
+        const intent = await extractManifestationIntent([
+          ...messages,
+          { role: "assistant", content: fullText },
+        ]);
+
+        controller.enqueue(
+          encoder.encode(JSON.stringify({ t: "d", intent, notes_used: notes.count }) + "\n")
+        );
+        controller.close();
+      } catch (error) {
+        let msg = error instanceof Error ? error.message : "Unknown error";
+        if (msg.includes("API key") || msg.includes("401")) msg = "API key issue — check OPENAI_API_KEY.";
+        else if (msg.includes("429")) msg = "Rate limit exceeded. Please try again in a moment.";
+        controller.enqueue(encoder.encode(JSON.stringify({ t: "e", error: msg }) + "\n"));
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "no-cache",
+      "X-Accel-Buffering": "no",
+    },
+  });
 }

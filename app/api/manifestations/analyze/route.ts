@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
+import { jsonComplete } from "@/lib/ai/router";
 
-const CHAT_MODEL = "gpt-4o-mini";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 const getSupabaseServerClient = () => {
   if (!supabaseUrl || !supabaseServiceKey) {
@@ -13,17 +11,6 @@ const getSupabaseServerClient = () => {
   }
   try {
     return createClient(supabaseUrl, supabaseServiceKey);
-  } catch {
-    return null;
-  }
-};
-
-const getOpenAIClient = () => {
-  if (!OPENAI_API_KEY) {
-    return null;
-  }
-  try {
-    return new OpenAI({ apiKey: OPENAI_API_KEY });
   } catch {
     return null;
   }
@@ -41,9 +28,8 @@ const normalizeTasks = (tasks: any[]) =>
 
 export async function POST(request: NextRequest) {
   const supabase = getSupabaseServerClient();
-  const openai = getOpenAIClient();
 
-  if (!supabase || !openai) {
+  if (!supabase) {
     return NextResponse.json(
       { error: "Server not configured for analysis" },
       { status: 500 }
@@ -75,11 +61,8 @@ export async function POST(request: NextRequest) {
       )
       .join("\n");
 
-    const completion = await openai.chat.completions.create({
-      model: CHAT_MODEL,
-      temperature: 0.25,
-      response_format: { type: "json_object" },
-      messages: [
+    const content = await jsonComplete(
+      [
         {
           role: "system",
           content:
@@ -90,11 +73,11 @@ export async function POST(request: NextRequest) {
           content: `Transcript:\n${trimmed}\n\nRespond with JSON like {"summary":"...","microTasks":[{"id":"task-1","title":"Research financing","description":"Compare credit unions","completed":false}],"inspirationPrompts":["Hyperreal photo ..."]}`,
         },
       ],
-    });
+      { temperature: 0.25 }
+    );
 
-    const content = completion.choices?.[0]?.message?.content;
     if (!content) {
-      throw new Error("No content returned from OpenAI");
+      throw new Error("No content returned from AI");
     }
 
     const parsed = JSON.parse(content);

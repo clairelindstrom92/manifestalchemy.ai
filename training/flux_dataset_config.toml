@@ -1,0 +1,20 @@
+# FLUX.1 LoRA training dataset config for kohya sd-scripts
+# Upload this file to RunPod alongside your flux_dataset/ folder.
+# Reference: https://github.com/kohya-ss/sd-scripts/blob/main/docs/train_network_README.md
+
+[general]
+shuffle_caption = false          # Keep MANIFESTA trigger at position 0 — DO NOT shuffle
+keep_tokens = 1                  # Always keep the first token (MANIFESTA) in place
+caption_extension = ".txt"
+enable_bucket = true             # Auto-bucket images by aspect ratio
+min_bucket_reso = 512
+max_bucket_reso = 1024
+
+[[datasets]]
+resolution = 1024
+batch_size = 1
+
+  [[datasets.subsets]]
+  image_dir = "/workspace/train_data/1_MANIFESTA"
+  caption_extension = ".txt"
+  num_repeats = 1                # Each image used once per epoch (619 images = 619 steps/epoch)

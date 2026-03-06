@@ -1,12 +1,26 @@
 'use client';
 
 import React, { useState, useEffect, ChangeEvent } from 'react';
-import { motion } from 'framer-motion';
-import { ArrowLeft, Plus, Image as ImageIcon, CheckCircle2, Circle, Sparkles } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  ArrowLeft,
+  Plus,
+  Image as ImageIcon,
+  CheckCircle2,
+  Circle,
+  Sparkles,
+  Heart,
+  Upload,
+  X,
+  Loader2,
+  Zap,
+} from 'lucide-react';
 import { supabase } from '@/lib/supabaseClient';
 import { useSupabaseUser } from '@/hooks/useSupabaseUser';
 import { useToast } from '@/components/shared/Toast';
+import GoldButton from '@/components/shared/GoldButton';
 import ChatInterface from './ChatInterface';
+import JournalPanel from './JournalPanel';
 
 interface Message {
   id: string;
@@ -35,6 +49,13 @@ interface MicroTask {
 interface VisionImage {
   url: string;
   source: 'gallery' | 'chat';
+}
+
+interface ReferenceImage {
+  id: string;
+  source_url: string;
+  storage_path?: string;
+  label?: string | null;
 }
 
 interface ManifestationData {
@@ -68,8 +89,7 @@ const normalizeMicroTasks = (tasks?: MicroTask[]): MicroTask[] => {
 
 const calculateProgress = (tasks: MicroTask[]) => {
   if (!tasks.length) return 0;
-  const completed = tasks.filter(task => task.completed).length;
-  return Math.round((completed / tasks.length) * 100);
+  return Math.round((tasks.filter((t) => t.completed).length / tasks.length) * 100);
 };
 
 export default function ManifestationDetail({ manifestation, onBack, onUpdate }: ManifestationDetailProps) {
@@ -78,255 +98,176 @@ export default function ManifestationDetail({ manifestation, onBack, onUpdate }:
   const [intentState, setIntentState] = useState<Record<string, any>>(manifestation.intent || {});
   const [microTasks, setMicroTasks] = useState<MicroTask[]>(normalizeMicroTasks(manifestation.intent?.microTasks));
   const [progress, setProgress] = useState(calculateProgress(microTasks));
-  const [summary, setSummary] = useState(
-    manifestation.summary || (manifestation.intent?.summary as string) || ''
+  const [summary, setSummary] = useState(manifestation.summary || (manifestation.intent?.summary as string) || '');
+  const [galleryImages, setGalleryImages] = useState<VisionImage[]>(() =>
+    ((manifestation.intent?.gallery as string[]) || []).map((url) => ({ url, source: 'gallery' as const }))
   );
-  const [galleryImages, setGalleryImages] = useState<VisionImage[]>(() => {
-    const gallery = (manifestation.intent?.gallery as string[]) || [];
-    return gallery.map((url) => ({ url, source: 'gallery' as const }));
-  });
   const [chatImages, setChatImages] = useState<VisionImage[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [savedImageUrls, setSavedImageUrls] = useState<Set<string>>(new Set());
+  const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([]);
+  const [uploadingReference, setUploadingReference] = useState(false);
   const { user } = useSupabaseUser();
   const { showSuccess, showError } = useToast();
 
   const collectChatMessages = (): Message[] => {
-    const allMessages: Message[] = [];
-    if (manifestation.chats && manifestation.chats.length > 0) {
-      manifestation.chats.forEach((chat) => {
-        if (chat.messages) {
-          allMessages.push(...chat.messages);
-        } else if (chat.content) {
-          try {
-            const parsed = JSON.parse(chat.content);
-            if (Array.isArray(parsed)) {
-              allMessages.push(...parsed);
-            }
-          } catch {}
-        }
-      });
-    }
-    return allMessages;
+    const all: Message[] = [];
+    manifestation.chats?.forEach((chat) => {
+      if (chat.messages) {
+        all.push(...chat.messages);
+      } else if (chat.content) {
+        try { const p = JSON.parse(chat.content); if (Array.isArray(p)) all.push(...p); } catch {}
+      }
+    });
+    return all;
   };
 
   useEffect(() => {
+    if (!user || !manifestation.id) return;
+    supabase
+      .from('saved_images')
+      .select('source_url')
+      .eq('user_id', user.id)
+      .eq('manifestation_id', manifestation.id)
+      .then(({ data }: { data: { source_url: string }[] | null }) => {
+        if (data) setSavedImageUrls(new Set(data.map((r) => r.source_url)));
+      });
+    fetch(`/api/images/reference?userId=${user.id}&manifestationId=${manifestation.id}`)
+      .then((r) => r.json())
+      .then(({ images }) => { if (images) setReferenceImages(images); });
+  }, [user, manifestation.id]);
+
+  useEffect(() => {
     setIntentState(manifestation.intent || {});
-
-    const normalizedTasks = normalizeMicroTasks(
-      manifestation.intent?.microTasks as MicroTask[]
-    );
-    setMicroTasks(normalizedTasks);
-    setProgress(calculateProgress(normalizedTasks));
-    setSummary(
-      manifestation.summary ||
-        (manifestation.intent?.summary as string) ||
-        ''
-    );
-
-    const gallery = (manifestation.intent?.gallery as string[]) || [];
-    setGalleryImages(gallery.map((url) => ({ url, source: 'gallery' as const })));
-
-    const chatImageUrls = collectChatMessages()
-      .filter((msg) => !!msg.imageUrl)
-      .map((msg) => msg.imageUrl as string);
-    const uniqueChatImages = Array.from(new Set(chatImageUrls)).map((url) => ({
-      url,
-      source: 'chat' as const,
-    }));
-    setChatImages(uniqueChatImages);
+    const tasks = normalizeMicroTasks(manifestation.intent?.microTasks as MicroTask[]);
+    setMicroTasks(tasks);
+    setProgress(calculateProgress(tasks));
+    setSummary(manifestation.summary || (manifestation.intent?.summary as string) || '');
+    setGalleryImages(((manifestation.intent?.gallery as string[]) || []).map((url) => ({ url, source: 'gallery' as const })));
+    const chatImgUrls = Array.from(new Set(collectChatMessages().filter((m) => !!m.imageUrl).map((m) => m.imageUrl as string)));
+    setChatImages(chatImgUrls.map((url) => ({ url, source: 'chat' as const })));
   }, [manifestation.intent, manifestation.summary, manifestation.chats]);
 
-  const handleNewChat = () => {
-    setShowNewChat(true);
-    setActiveChat(null);
-  };
-
-  const handleChatCreated = async (chatData: any) => {
-    // Update manifestation with new chat
-    await onUpdate();
-    setShowNewChat(false);
-  };
-
-  const handleChatSelect = (chat: Chat) => {
-    // Parse messages if needed
-    let messages: Message[] = [];
-    if (chat.messages) {
-      messages = chat.messages;
-    } else if (chat.content) {
-      try {
-        messages = JSON.parse(chat.content);
-      } catch {
-        messages = [];
-      }
-    }
-    
-    setActiveChat({
-      ...chat,
-      messages,
-      title: chat.title || 'Untitled Chat'
-    });
-    setShowNewChat(false);
-  };
-
-  const updateIntent = async (patch: Record<string, any>, extraFields: Record<string, any> = {}) => {
+  const updateIntent = async (patch: Record<string, any>, extra: Record<string, any> = {}) => {
     if (!manifestation.id) return;
-    const mergedIntent = {
-      ...(intentState || {}),
-      ...patch,
-    };
-    setIntentState(mergedIntent);
-    await supabase
-      .from('manifestations')
-      .update({
-        intent: mergedIntent,
-        ...extraFields,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', manifestation.id);
+    const merged = { ...intentState, ...patch };
+    setIntentState(merged);
+    await supabase.from('manifestations').update({ intent: merged, ...extra, updated_at: new Date().toISOString() }).eq('id', manifestation.id);
     onUpdate();
   };
 
   const handleToggleTask = async (taskId: string) => {
-    const updatedTasks = microTasks.map(task =>
-      task.id === taskId ? { ...task, completed: !task.completed } : task
-    );
-    setMicroTasks(updatedTasks);
-    setProgress(calculateProgress(updatedTasks));
-    await updateIntent({ microTasks: updatedTasks });
+    const updated = microTasks.map((t) => (t.id === taskId ? { ...t, completed: !t.completed } : t));
+    setMicroTasks(updated);
+    setProgress(calculateProgress(updated));
+    await updateIntent({ microTasks: updated });
   };
 
   const handleGeneratePlan = async () => {
-    if (!manifestation.id) {
-      showError('Manifestation is missing an id');
-      return;
-    }
-    const conversation = collectChatMessages()
-      .filter((msg) => msg.content && msg.content.trim().length > 0)
-      .map((msg) => ({ role: msg.role, content: msg.content }));
-
-    if (conversation.length === 0) {
-      showError('No chat history found. Start a conversation first.');
-      return;
-    }
-
+    if (!manifestation.id) { showError('Manifestation ID missing'); return; }
+    const conversation = collectChatMessages().filter((m) => m.content?.trim()).map((m) => ({ role: m.role, content: m.content }));
+    if (!conversation.length) { showError('No chat history. Start a conversation first.'); return; }
     setAnalyzing(true);
     try {
-      const response = await fetch('/api/manifestations/analyze', {
+      const res = await fetch('/api/manifestations/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          manifestationId: manifestation.id,
-          messages: conversation.slice(-60),
-        }),
+        body: JSON.stringify({ manifestationId: manifestation.id, messages: conversation.slice(-60) }),
       });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to analyze manifestation');
-      }
-
-      const data = await response.json();
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Analysis failed'); }
+      const data = await res.json();
       const tasks = normalizeMicroTasks(data.microTasks);
       setMicroTasks(tasks);
       setProgress(calculateProgress(tasks));
       setSummary(data.summary || summary);
-
-      await updateIntent(
-        { microTasks: tasks, summary: data.summary, inspirationPrompts: data.inspirationPrompts },
-        { summary: data.summary }
-      );
-      showSuccess('Plan refreshed');
-    } catch (error) {
-      showError(
-        `Unable to generate plan: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      await updateIntent({ microTasks: tasks, summary: data.summary, inspirationPrompts: data.inspirationPrompts }, { summary: data.summary });
+      showSuccess('Plan generated');
+    } catch (err) {
+      showError(`Plan generation failed: ${err instanceof Error ? err.message : 'Unknown'}`);
     } finally {
       setAnalyzing(false);
     }
   };
 
   const handleImageUpload = async (event: ChangeEvent<HTMLInputElement>) => {
-    if (!manifestation.id || !user) {
-      showError('You must be logged in to upload images');
-      return;
-    }
+    if (!manifestation.id || !user) { showError('Must be logged in'); return; }
     const file = event.target.files?.[0];
     if (!file) return;
-
     setUploadingImage(true);
     try {
-      const sanitizedName = file.name.replace(/\s+/g, '-');
-      const filePath = `${user.id}/${manifestation.id}/${Date.now()}-${sanitizedName}`;
-      const { error } = await supabase.storage
-        .from('manifestation-media')
-        .upload(filePath, file);
+      const sanitized = file.name.replace(/\s+/g, '-');
+      const path = `${user.id}/${manifestation.id}/${Date.now()}-${sanitized}`;
+      const { error } = await supabase.storage.from('manifestation-media').upload(path, file);
       if (error) throw error;
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from('manifestation-media').getPublicUrl(filePath);
-
-      const updatedGallery = [
-        ...galleryImages,
-        { url: publicUrl, source: 'gallery' as const },
-      ];
-      setGalleryImages(updatedGallery);
-      await updateIntent({
-        gallery: updatedGallery
-          .filter((img) => img.source === 'gallery')
-          .map((img) => img.url),
-      });
+      const { data: { publicUrl } } = supabase.storage.from('manifestation-media').getPublicUrl(path);
+      const updated = [...galleryImages, { url: publicUrl, source: 'gallery' as const }];
+      setGalleryImages(updated);
+      await updateIntent({ gallery: updated.filter((i) => i.source === 'gallery').map((i) => i.url) });
       showSuccess('Image uploaded');
-    } catch (error) {
-      showError(
-        `Failed to upload image: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+    } catch (err) {
+      showError(`Upload failed: ${err instanceof Error ? err.message : 'Unknown'}`);
     } finally {
       setUploadingImage(false);
       event.target.value = '';
     }
   };
 
-  const handleGenerateVision = async () => {
-    if (!manifestation.id) {
-      showError('Manifestation not found');
-      return;
+  const handleToggleSave = async (imageUrl: string) => {
+    if (!user || !manifestation.id) return;
+    const isSaved = savedImageUrls.has(imageUrl);
+    if (isSaved) {
+      await fetch('/api/images/save', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, sourceUrl: imageUrl }) });
+      setSavedImageUrls((prev) => { const s = new Set(prev); s.delete(imageUrl); return s; });
+    } else {
+      await fetch('/api/images/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, manifestationId: manifestation.id, sourceUrl: imageUrl, prompt: summary || manifestation.title }) });
+      setSavedImageUrls((prev) => new Set(prev).add(imageUrl));
+      showSuccess('Saved to collection');
     }
+  };
 
+  const handleReferenceUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    if (!user || !manifestation.id) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingReference(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('userId', user.id);
+      fd.append('manifestationId', manifestation.id);
+      fd.append('label', file.name);
+      const res = await fetch('/api/images/reference', { method: 'POST', body: fd });
+      const { image } = await res.json();
+      if (image) { setReferenceImages((prev) => [image, ...prev]); showSuccess('Reference added — influences your next vision'); }
+    } catch { showError('Upload failed'); }
+    finally { setUploadingReference(false); e.target.value = ''; }
+  };
+
+  const handleRemoveReference = async (img: ReferenceImage) => {
+    if (!user) return;
+    await fetch('/api/images/reference', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: user.id, imageId: img.id, storagePath: img.storage_path }) });
+    setReferenceImages((prev) => prev.filter((r) => r.id !== img.id));
+  };
+
+  const handleGenerateVision = async () => {
+    if (!manifestation.id) { showError('Manifestation not found'); return; }
     setIsGeneratingImage(true);
     try {
-      const response = await fetch('/api/manifestations/image', {
+      const res = await fetch('/api/manifestations/image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          manifestationId: manifestation.id,
-          prompt: summary || manifestation.title,
-        }),
+        body: JSON.stringify({ manifestationId: manifestation.id, prompt: summary || manifestation.title, userId: user?.id }),
       });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to generate image');
-      }
-
-      const { imageUrl } = await response.json();
-      const updatedGallery = [
-        ...galleryImages,
-        { url: imageUrl, source: 'gallery' as const },
-      ];
-      setGalleryImages(updatedGallery);
-      await updateIntent({
-        gallery: updatedGallery
-          .filter((img) => img.source === 'gallery')
-          .map((img) => img.url),
-      });
-      showSuccess('Vision image generated');
-    } catch (error) {
-      showError(
-        `Vision generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error || 'Failed'); }
+      const { imageUrl } = await res.json();
+      const updated = [...galleryImages, { url: imageUrl, source: 'gallery' as const }];
+      setGalleryImages(updated);
+      await updateIntent({ gallery: updated.filter((i) => i.source === 'gallery').map((i) => i.url) });
+      showSuccess('Vision generated');
+    } catch (err) {
+      showError(`Vision generation failed: ${err instanceof Error ? err.message : 'Unknown'}`);
     } finally {
       setIsGeneratingImage(false);
     }
@@ -339,14 +280,11 @@ export default function ManifestationDetail({ manifestation, onBack, onUpdate }:
           id: activeChat.id,
           title: activeChat.title || 'Untitled Chat',
           content: activeChat.messages ? JSON.stringify(activeChat.messages) : activeChat.content,
-          updated_at: activeChat.updated_at
+          updated_at: activeChat.updated_at,
         } : null}
-        onBack={() => {
-          setShowNewChat(false);
-          setActiveChat(null);
-        }}
+        onBack={() => { setShowNewChat(false); setActiveChat(null); }}
         onProjectUpdate={onUpdate}
-        onProjectCreated={handleChatCreated}
+        onProjectCreated={async () => { await onUpdate(); setShowNewChat(false); }}
         onProjectDeleted={onUpdate}
         manifestationId={manifestation.id}
       />
@@ -354,234 +292,263 @@ export default function ManifestationDetail({ manifestation, onBack, onUpdate }:
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-[#f5f5f7]">
+    <div className="min-h-screen bg-[#08080f] text-white">
       {/* Header */}
-      <div className="sticky top-0 z-20 bg-[#0a0a0f] border-b border-[#2a2a3a] px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={onBack}
-              className="text-[#a1a1aa] hover:text-[#f5f5f7] transition-colors p-2 hover:bg-[#1f1f2e] rounded-lg"
-            >
-              <ArrowLeft size={20} />
+      <div className="sticky top-0 z-20 bg-[#08080f]/95 backdrop-blur-md border-b border-white/5 px-6 py-4">
+        <div className="flex items-center justify-between max-w-4xl mx-auto">
+          <div className="flex items-center gap-3">
+            <button onClick={onBack} className="p-2 rounded-lg text-white/30 hover:text-white/70 hover:bg-white/5 transition-colors">
+              <ArrowLeft size={18} />
             </button>
             <div>
-              <h1 className="text-2xl font-semibold text-[#f5f5f7] flex items-center gap-2">
-                <Sparkles className="w-6 h-6 text-[#E4B77D]" />
-                {manifestation.title}
-              </h1>
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#E4B77D]" />
+                <h1 className="text-lg font-semibold text-white/90 leading-tight">
+                  {manifestation.title || 'Untitled Manifestation'}
+                </h1>
+              </div>
+              {manifestation.status && (
+                <span className="text-[11px] text-white/30 capitalize ml-6">{manifestation.status}</span>
+              )}
             </div>
           </div>
-          <button
-            onClick={handleNewChat}
-            className="relative transition-all duration-500 backdrop-blur-sm overflow-hidden px-4 py-2 rounded-full text-sm font-medium text-[#f5f5f7] gold-shiny"
-            style={{
-              background: 'linear-gradient(to right, rgba(228, 183, 125, 0.2), rgba(228, 183, 125, 0.25), rgba(228, 183, 125, 0.2))',
-              border: '1px solid rgba(228, 183, 125, 0.3)',
-            }}
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 animate-shimmer"></div>
-            <Plus className="w-4 h-4 inline mr-2 relative z-10" />
-            <span className="relative z-10">New Chat</span>
-          </button>
+          <GoldButton size="sm" onClick={() => { setShowNewChat(true); setActiveChat(null); }}>
+            <Plus className="w-3.5 h-3.5" />
+            <span>New Chat</span>
+          </GoldButton>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto p-6 space-y-6">
-        {/* Summary */}
-        <div className="bg-[#151520] border border-[#2a2a3a] rounded-xl p-6">
-          <div className="flex items-center justify-between mb-3">
+      <div className="max-w-4xl mx-auto px-6 py-6 space-y-5">
+        {/* Summary Card */}
+        <div className="bg-[#0e0e18] border border-white/6 rounded-2xl p-5">
+          <div className="flex items-start justify-between gap-4 mb-3">
             <div>
-              <h3 className="text-lg font-semibold text-[#f5f5f7]">Manifestation Summary</h3>
-              <p className="text-sm text-[#a1a1aa]">
-                Snapshot of the vision captured directly from your chats.
-              </p>
+              <h3 className="text-sm font-semibold text-white/80 mb-0.5">Manifestation Summary</h3>
+              <p className="text-xs text-white/30">AI-captured snapshot of your vision</p>
             </div>
-            <button
-              onClick={handleGeneratePlan}
-              disabled={analyzing}
-              className="px-4 py-2 rounded-full text-sm font-medium border border-[#E4B77D]/40 text-[#E4B77D] hover:bg-[#E4B77D]/10 transition disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {analyzing ? 'Analyzing…' : 'Generate Plan'}
-            </button>
+            <GoldButton size="sm" variant="outline" onClick={handleGeneratePlan} disabled={analyzing}>
+              {analyzing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Zap className="w-3.5 h-3.5" />}
+              <span>{analyzing ? 'Analyzing…' : 'Generate Plan'}</span>
+            </GoldButton>
           </div>
-          <p className="text-[#f5f5f7] leading-relaxed">
-            {summary
-              ? summary
-              : 'No summary yet. Generate a plan once the chat contains enough details.'}
+          <p className="text-white/65 text-sm leading-relaxed">
+            {summary || 'No summary yet. Generate a plan once the chat has enough details.'}
           </p>
         </div>
 
-        {/* Progress Bar */}
-        <div className="bg-[#151520] border border-[#2a2a3a] rounded-xl p-6">
+        {/* Progress */}
+        <div className="bg-[#0e0e18] border border-white/6 rounded-2xl p-5">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-semibold text-[#f5f5f7]">Progress</h3>
-            <span className="text-[#E4B77D] font-semibold">{progress}%</span>
+            <h3 className="text-sm font-semibold text-white/80">Progress</h3>
+            <span className="text-sm font-semibold text-[#E4B77D]">{progress}%</span>
           </div>
-          <div className="w-full bg-[#1f1f2e] rounded-full h-3 overflow-hidden">
+          <div className="w-full bg-white/5 rounded-full h-2 overflow-hidden">
             <motion.div
-              className="h-full bg-gradient-to-r from-[#E4B77D] to-[#F0C896] rounded-full"
+              className="h-full rounded-full"
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.5 }}
+              transition={{ duration: 0.6, ease: 'easeOut' }}
+              style={{ background: 'linear-gradient(90deg, #E4B77D, #F0C896)' }}
             />
           </div>
-          <p className="text-xs text-[#71717a] mt-2">
+          <p className="text-[11px] text-white/25 mt-2">
             {microTasks.length > 0
-              ? `${microTasks.filter(task => task.completed).length}/${microTasks.length} micro-tasks completed`
-              : 'Generate a plan to unlock micro-tasks.'}
+              ? `${microTasks.filter((t) => t.completed).length} of ${microTasks.length} micro-tasks complete`
+              : 'Generate a plan to unlock action steps'}
           </p>
         </div>
 
-        {/* Images Gallery */}
-        <div className="bg-[#151520] border border-[#2a2a3a] rounded-xl p-6">
+        {/* Vision Board */}
+        <div className="bg-[#0e0e18] border border-white/6 rounded-2xl p-5">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h3 className="text-lg font-semibold text-[#f5f5f7] flex items-center gap-2">
-              <ImageIcon className="w-5 h-5 text-[#E4B77D]" />
-              Vision Board
-            </h3>
+            <div className="flex items-center gap-2">
+              <ImageIcon className="w-4 h-4 text-[#E4B77D]" />
+              <h3 className="text-sm font-semibold text-white/80">Vision Board</h3>
+            </div>
             <div className="flex flex-wrap gap-2">
-              <label className="px-4 py-2 rounded-full text-xs font-semibold border border-[#E4B77D]/40 text-[#E4B77D] hover:bg-[#E4B77D]/10 transition cursor-pointer">
-                {uploadingImage ? 'Uploading…' : 'Upload Photo'}
-                <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImageUpload}
-                  disabled={uploadingImage}
-                />
+              <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border border-white/10 text-white/50 hover:text-white/80 hover:border-[#E4B77D]/30 transition-all cursor-pointer">
+                {uploadingImage ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+                {uploadingImage ? 'Uploading…' : 'Upload'}
+                <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} disabled={uploadingImage} />
               </label>
-              <button
-                onClick={handleGenerateVision}
-                disabled={isGeneratingImage}
-                className="px-4 py-2 rounded-full text-xs font-semibold border border-[#E4B77D]/40 text-[#151520] bg-[#E4B77D] hover:bg-[#F0C896] transition disabled:opacity-60"
-              >
-                {isGeneratingImage ? 'Generating…' : 'Generate Vision'}
-              </button>
+              <GoldButton size="sm" variant="solid" onClick={handleGenerateVision} disabled={isGeneratingImage}>
+                {isGeneratingImage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                <span>{isGeneratingImage ? 'Generating…' : 'Generate Vision'}</span>
+              </GoldButton>
             </div>
           </div>
+
           {galleryImages.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {galleryImages.map((image, index) => (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {galleryImages.map((image, i) => (
                 <motion.div
-                  key={`${image.url}-${index}`}
-                  initial={{ opacity: 0, scale: 0.9 }}
+                  key={`${image.url}-${i}`}
+                  initial={{ opacity: 0, scale: 0.92 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="relative aspect-square rounded-lg overflow-hidden border border-[#2a2a3a]"
+                  transition={{ delay: i * 0.04 }}
+                  className="relative aspect-square rounded-xl overflow-hidden border border-white/6 group"
                 >
-                  <img src={image.url} alt="Vision image" className="w-full h-full object-cover" />
+                  <img src={image.url} alt="Vision" className="w-full h-full object-cover" />
+                  <button
+                    onClick={() => handleToggleSave(image.url)}
+                    className="absolute top-2 right-2 p-1.5 rounded-full bg-black/50 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <Heart size={14} className={savedImageUrls.has(image.url) ? 'fill-[#E4B77D] text-[#E4B77D]' : 'text-white'} />
+                  </button>
                 </motion.div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-[#a1a1aa]">
-              No gallery images yet. Upload a photo or generate a vision to begin.
+            <p className="text-xs text-white/25 py-6 text-center">
+              No vision images yet. Upload a photo or generate an AI vision to begin.
             </p>
           )}
 
           {chatImages.length > 0 && (
-            <div className="mt-6">
-              <p className="text-sm text-[#71717a] mb-2">Images mentioned in your chats</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {chatImages.map((image) => (
-                  <div
-                    key={image.url}
-                    className="aspect-square rounded-lg overflow-hidden border border-dashed border-[#2a2a3a]"
-                  >
-                    <img src={image.url} alt="Chat attachment" className="w-full h-full object-cover" />
+            <div className="mt-4 pt-4 border-t border-white/5">
+              <p className="text-xs text-white/30 mb-3">Chat attachments</p>
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                {chatImages.map((img) => (
+                  <div key={img.url} className="relative aspect-square rounded-lg overflow-hidden border border-dashed border-white/10 group">
+                    <img src={img.url} alt="Chat" className="w-full h-full object-cover" />
+                    <button onClick={() => handleToggleSave(img.url)} className="absolute top-1 right-1 p-1 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Heart size={10} className={savedImageUrls.has(img.url) ? 'fill-[#E4B77D] text-[#E4B77D]' : 'text-white'} />
+                    </button>
                   </div>
                 ))}
               </div>
             </div>
           )}
+
+          {/* Reference Images */}
+          <div className="mt-4 pt-4 border-t border-white/5">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <p className="text-xs font-medium text-white/60">Reference Images</p>
+                <p className="text-[10px] text-white/25 mt-0.5">Influence how your visions are generated</p>
+              </div>
+              <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs border border-white/10 text-white/40 hover:text-[#E4B77D] hover:border-[#E4B77D]/30 transition-all cursor-pointer">
+                <Upload size={11} />
+                {uploadingReference ? 'Uploading…' : 'Add Reference'}
+                <input type="file" accept="image/*" className="hidden" onChange={handleReferenceUpload} disabled={uploadingReference} />
+              </label>
+            </div>
+            {referenceImages.length > 0 ? (
+              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                {referenceImages.map((img) => (
+                  <div key={img.id} className="relative aspect-square rounded-lg overflow-hidden border border-white/8 group">
+                    <img src={img.source_url} alt={img.label || 'Ref'} className="w-full h-full object-cover" />
+                    <button onClick={() => handleRemoveReference(img)} className="absolute top-0.5 right-0.5 p-1 rounded-full bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <X size={9} className="text-white" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[11px] text-white/20">
+                Add your photo — the AI will blend your likeness into generated visions.
+              </p>
+            )}
+          </div>
         </div>
 
-        {/* Todos Checklist */}
-        <div className="bg-[#151520] border border-[#2a2a3a] rounded-xl p-6">
+        {/* Micro Tasks */}
+        <div className="bg-[#0e0e18] border border-white/6 rounded-2xl p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-[#f5f5f7]">Micro Tasks</h3>
-            <span className="text-xs text-[#71717a]">
-              {microTasks.length ? 'Tap to mark complete' : ''}
-            </span>
+            <h3 className="text-sm font-semibold text-white/80">Action Steps</h3>
+            {microTasks.length > 0 && (
+              <span className="text-[11px] text-white/25">Tap to mark complete</span>
+            )}
           </div>
           {microTasks.length > 0 ? (
             <div className="space-y-2">
-              {microTasks.map((task, index) => (
+              {microTasks.map((task, i) => (
                 <motion.button
                   key={task.id}
                   onClick={() => handleToggleTask(task.id)}
-                  initial={{ opacity: 0, x: -20 }}
+                  initial={{ opacity: 0, x: -12 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.04 }}
-                  className="w-full flex items-center gap-3 text-left p-3 rounded-lg border border-transparent hover:border-[#E4B77D]/40 hover:bg-[#1f1f2e] transition"
+                  transition={{ delay: i * 0.04 }}
+                  className={`w-full flex items-start gap-3 text-left p-3 rounded-xl border transition-all ${
+                    task.completed
+                      ? 'border-[#E4B77D]/15 bg-[#E4B77D]/5'
+                      : 'border-white/5 hover:border-[#E4B77D]/20 hover:bg-white/2'
+                  }`}
                 >
                   {task.completed ? (
-                    <CheckCircle2 className="w-5 h-5 text-[#E4B77D]" />
+                    <CheckCircle2 className="w-4 h-4 text-[#E4B77D] mt-0.5 shrink-0" />
                   ) : (
-                    <Circle className="w-5 h-5 text-[#E4B77D]" />
+                    <Circle className="w-4 h-4 text-white/20 mt-0.5 shrink-0" />
                   )}
                   <div>
-                    <p className="text-[#f5f5f7] font-medium">{task.title}</p>
-                    {task.description && (
-                      <p className="text-xs text-[#a1a1aa] mt-0.5">{task.description}</p>
-                    )}
+                    <p className={`text-sm font-medium ${task.completed ? 'text-white/40 line-through' : 'text-white/80'}`}>{task.title}</p>
+                    {task.description && <p className="text-[11px] text-white/30 mt-0.5">{task.description}</p>}
                   </div>
                 </motion.button>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-[#a1a1aa]">
-              No micro-tasks yet. Generate a plan to receive bite-sized actions.
+            <p className="text-xs text-white/25 py-4 text-center">
+              Generate a plan above to receive bite-sized action steps.
             </p>
           )}
         </div>
 
-        {/* Chats List */}
-        <div className="bg-[#151520] border border-[#2a2a3a] rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-[#f5f5f7] mb-4">Chats</h3>
+        {/* Living Journal */}
+        {manifestation.id && (
+          <div className="bg-[#0e0e18] border border-white/6 rounded-2xl p-5">
+            <JournalPanel
+              manifestationId={manifestation.id}
+              manifestationTitle={manifestation.title}
+              manifestationSummary={manifestation.summary}
+            />
+          </div>
+        )}
+
+        {/* Chats */}
+        <div className="bg-[#0e0e18] border border-white/6 rounded-2xl p-5">
+          <h3 className="text-sm font-semibold text-white/80 mb-4">Chat Sessions</h3>
           {manifestation.chats && manifestation.chats.length > 0 ? (
             <div className="space-y-2">
-              {manifestation.chats.map((chat) => (
-                <motion.button
-                  key={chat.id}
-                  onClick={() => handleChatSelect(chat)}
-                  className="w-full text-left p-4 rounded-lg border border-[#2a2a3a] hover:border-[#E4B77D]/50 hover:bg-[#1f1f2e] transition-all group"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-[#f5f5f7] group-hover:text-[#E4B77D] transition-colors">
-                        {chat.title || 'Untitled Chat'}
-                      </h4>
-                      <p className="text-sm text-[#a1a1aa] mt-1">
-                        {(() => {
-                          if (chat.messages) return chat.messages.length;
-                          if (chat.content) {
-                            try {
-                              const parsed = JSON.parse(chat.content);
-                              return Array.isArray(parsed) ? parsed.length : 0;
-                            } catch {
-                              return 0;
-                            }
-                          }
-                          return 0;
-                        })()} messages
+              {manifestation.chats.map((chat) => {
+                const msgCount = chat.messages?.length ?? (() => {
+                  try { const p = JSON.parse(chat.content || '[]'); return Array.isArray(p) ? p.length : 0; } catch { return 0; }
+                })();
+                return (
+                  <motion.button
+                    key={chat.id}
+                    onClick={() => {
+                      let msgs: Message[] = [];
+                      if (chat.messages) msgs = chat.messages;
+                      else if (chat.content) { try { msgs = JSON.parse(chat.content); } catch {} }
+                      setActiveChat({ ...chat, messages: msgs, title: chat.title || 'Untitled Chat' });
+                      setShowNewChat(false);
+                    }}
+                    className="w-full text-left p-4 rounded-xl border border-white/5 hover:border-[#E4B77D]/25 hover:bg-white/2 transition-all group"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-sm font-medium text-white/70 group-hover:text-white/90 transition-colors">
+                          {chat.title || 'Untitled Chat'}
+                        </h4>
+                        <p className="text-[11px] text-white/25 mt-0.5">{msgCount} messages</p>
+                      </div>
+                      <p className="text-[11px] text-white/20">
+                        {chat.updated_at ? new Date(chat.updated_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—'}
                       </p>
                     </div>
-                    <div className="text-xs text-[#71717a]">
-                      {chat.updated_at ? new Date(chat.updated_at).toLocaleDateString() : 'No date'}
-                    </div>
-                  </div>
-                </motion.button>
-              ))}
+                  </motion.button>
+                );
+              })}
             </div>
           ) : (
-            <div className="text-center py-8 text-[#a1a1aa]">
-              <p>No chats yet. Start a new chat to begin!</p>
-            </div>
+            <p className="text-xs text-white/25 py-4 text-center">
+              No sessions yet. Start a new chat to begin.
+            </p>
           )}
         </div>
       </div>
     </div>
   );
 }
-
