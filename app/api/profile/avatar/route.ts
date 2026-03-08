@@ -1,10 +1,14 @@
 /**
  * /api/profile/avatar
- * GET  ?userId=  — fetch user profile (avatar_url, display_name)
+ * GET  — fetch current user's profile (avatar_url, display_name)
  * POST — upload a new avatar image
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getAuthUser } from '@/lib/supabase/auth';
+
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 const getSupabase = () =>
   createClient(
@@ -13,14 +17,14 @@ const getSupabase = () =>
   );
 
 export async function GET(request: NextRequest) {
-  const userId = new URL(request.url).searchParams.get('userId');
-  if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 });
+  const user = await getAuthUser(request);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('profiles')
     .select('avatar_url, display_name')
-    .eq('id', userId)
+    .eq('id', user.id)
     .maybeSingle();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -28,18 +32,27 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const user = await getAuthUser(request);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
   const formData = await request.formData();
   const file = formData.get('file') as File | null;
-  const userId = formData.get('userId') as string;
 
-  if (!file || !userId) {
-    return NextResponse.json({ error: 'file and userId required' }, { status: 400 });
+  if (!file) {
+    return NextResponse.json({ error: 'file required' }, { status: 400 });
+  }
+
+  if (file.size > MAX_FILE_SIZE) {
+    return NextResponse.json({ error: 'File too large (max 5 MB)' }, { status: 413 });
+  }
+
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    return NextResponse.json({ error: 'Invalid file type' }, { status: 415 });
   }
 
   const supabase = getSupabase();
-  const ext = file.name.split('.').pop() ?? 'jpg';
-  // Overwrite previous avatar with same path
-  const storagePath = `${userId}/avatar.${ext}`;
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? 'jpg';
+  const storagePath = `${user.id}/avatar.${ext}`;
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const { error: uploadError } = await supabase.storage
@@ -49,12 +62,11 @@ export async function POST(request: NextRequest) {
   if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 });
 
   const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(storagePath);
-  // Bust cache with timestamp
   const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
 
   await supabase
     .from('profiles')
-    .upsert({ id: userId, avatar_url: avatarUrl, updated_at: new Date().toISOString() });
+    .upsert({ id: user.id, avatar_url: avatarUrl, updated_at: new Date().toISOString() });
 
   return NextResponse.json({ avatarUrl });
 }
