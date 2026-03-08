@@ -1,27 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { chatComplete } from "@/lib/ai/router";
 import { queryChunks } from "@/lib/rag/embed";
+import { getAuthUser } from "@/lib/supabase/auth";
 
 export async function POST(request: NextRequest) {
+  const user = await getAuthUser(request);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
     const {
-      userId,
       manifestationId,
       question,
       manifestationTitle,
       manifestationSummary,
     } = await request.json();
 
-    if (!userId || !question?.trim()) {
-      return NextResponse.json(
-        { error: "userId and question required" },
-        { status: 400 }
-      );
+    if (!question?.trim()) {
+      return NextResponse.json({ error: "question required" }, { status: 400 });
     }
 
-    // Retrieve relevant memories from this user's journal + chat history
     const chunks = await queryChunks({
-      userId,
+      userId: user.id,
       query: question,
       matchCount: 8,
       minSimilarity: 0.6,
