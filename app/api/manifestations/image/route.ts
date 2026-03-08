@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { generateImage } from "@/lib/ai/imageRouter";
 import { chatComplete } from "@/lib/ai/router";
+import { getAuthUser } from "@/lib/supabase/auth";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -12,10 +13,6 @@ const getSupabaseServerClient = () => {
   try { return createClient(supabaseUrl, supabaseServiceKey); } catch { return null; }
 };
 
-// ---------------------------------------------------------------
-// Build a vivid, MANIFESTA-aesthetic image prompt from the
-// user's manifestation context using the AI
-// ---------------------------------------------------------------
 async function buildImagePrompt(manifestationContext: string): Promise<string> {
   try {
     const scene = await chatComplete(
@@ -34,17 +31,17 @@ async function buildImagePrompt(manifestationContext: string): Promise<string> {
     );
 
     const cleaned = scene.trim().replace(/^["']|["']$/g, "");
-    // Append the MANIFESTA aesthetic keywords from the FLUX training captions
     return `${cleaned}, manifestation aesthetic, luxury lifestyle, golden light, cinematic, high vibrational energy, Pinterest style, aspirational, divine feminine, opulent, 8k, editorial photography`;
   } catch {
-    // Fallback if AI prompt builder fails
     return `${manifestationContext}, manifestation aesthetic, luxury lifestyle, golden light, cinematic, high vibrational energy, aspirational, divine feminine, opulent`;
   }
 }
 
 export async function POST(request: NextRequest) {
-  const supabase = getSupabaseServerClient();
+  const user = await getAuthUser(request);
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
+  const supabase = getSupabaseServerClient();
   if (!supabase) {
     return NextResponse.json(
       { error: "Server not configured for image generation" },
@@ -53,7 +50,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { manifestationId, prompt, userId } = await request.json();
+    const { manifestationId, prompt } = await request.json();
 
     if (!manifestationId) {
       return NextResponse.json({ error: "manifestationId is required" }, { status: 400 });
@@ -62,30 +59,26 @@ export async function POST(request: NextRequest) {
     const baseContext =
       prompt?.trim() || "a person living their dream life, abundant and fulfilled";
 
-    // Generate a vivid, specific scene prompt using the AI + MANIFESTA vocabulary
     const finalPrompt = await buildImagePrompt(baseContext);
 
-    // Fetch reference image for FLUX IP-Adapter conditioning
     let referenceImageUrl: string | undefined;
-    if (userId) {
-      const { data: refImages } = await supabase
-        .from("reference_images")
-        .select("source_url")
-        .eq("user_id", userId)
-        .eq("manifestation_id", manifestationId)
-        .order("created_at", { ascending: false })
-        .limit(1);
+    const { data: refImages } = await supabase
+      .from("reference_images")
+      .select("source_url")
+      .eq("user_id", user.id)
+      .eq("manifestation_id", manifestationId)
+      .order("created_at", { ascending: false })
+      .limit(1);
 
-      if (refImages && refImages.length > 0) {
-        referenceImageUrl = refImages[0].source_url;
-      } else {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("avatar_url")
-          .eq("id", userId)
-          .maybeSingle();
-        referenceImageUrl = profile?.avatar_url ?? undefined;
-      }
+    if (refImages && refImages.length > 0) {
+      referenceImageUrl = refImages[0].source_url;
+    } else {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("avatar_url")
+        .eq("id", user.id)
+        .maybeSingle();
+      referenceImageUrl = profile?.avatar_url ?? undefined;
     }
 
     const generated = await generateImage(finalPrompt, { referenceImageUrl });
@@ -116,7 +109,6 @@ export async function POST(request: NextRequest) {
       throw new Error("No image data returned from provider");
     }
 
-    // Append to manifestation gallery
     const { data: existing } = await supabase
       .from("manifestations")
       .select("intent")
