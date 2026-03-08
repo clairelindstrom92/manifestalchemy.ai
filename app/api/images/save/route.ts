@@ -5,6 +5,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getAuthUser } from '@/lib/supabase/auth';
 
 const getSupabase = () =>
   createClient(
@@ -13,15 +14,18 @@ const getSupabase = () =>
   );
 
 export async function POST(request: NextRequest) {
-  const { userId, manifestationId, sourceUrl, prompt } = await request.json();
-  if (!userId || !manifestationId || !sourceUrl) {
-    return NextResponse.json({ error: 'userId, manifestationId, sourceUrl required' }, { status: 400 });
+  const user = await getAuthUser(request);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { manifestationId, sourceUrl, prompt } = await request.json();
+  if (!manifestationId || !sourceUrl) {
+    return NextResponse.json({ error: 'manifestationId, sourceUrl required' }, { status: 400 });
   }
 
   const supabase = getSupabase();
   const { data, error } = await supabase
     .from('saved_images')
-    .insert({ user_id: userId, manifestation_id: manifestationId, source_url: sourceUrl, prompt })
+    .insert({ user_id: user.id, manifestation_id: manifestationId, source_url: sourceUrl, prompt })
     .select()
     .single();
 
@@ -30,16 +34,19 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const { userId, sourceUrl } = await request.json();
-  if (!userId || !sourceUrl) {
-    return NextResponse.json({ error: 'userId, sourceUrl required' }, { status: 400 });
+  const user = await getAuthUser(request);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { sourceUrl } = await request.json();
+  if (!sourceUrl) {
+    return NextResponse.json({ error: 'sourceUrl required' }, { status: 400 });
   }
 
   const supabase = getSupabase();
   const { error } = await supabase
     .from('saved_images')
     .delete()
-    .eq('user_id', userId)
+    .eq('user_id', user.id)
     .eq('source_url', sourceUrl);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
